@@ -2,8 +2,6 @@
 
 # 🎛️ Script d'installation interactive de GLPI pour Debian 12
 # 🧑‍💻 Par Alexandre (avec l'aide de ChatGPT4o)
-#V5 
-#https-> ok
 
 export PATH=$PATH:/usr/sbin:/sbin
 
