@@ -13,10 +13,10 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically i
   - **Apache2**  
   - **MariaDB**  
   - **PHP et extensions nécessaires / PHP and required extensions**
-- Configuration d’un **VirtualHost HTTPS** / HTTPS VirtualHost configuration
-- Génération automatique d’un **certificat SSL** via **Certbot (Let's Encrypt)** / Automatic SSL certificate generation via Certbot
-- Création d’une **base de données GLPI** / Creation of a GLPI database
-- Configuration automatique des **permissions** / Automatic permissions configuration
+- Configuration d’un **VirtualHost HTTPS** / **HTTPS VirtualHost** configuration
+- Génération automatique d’un **certificat SSL** via **Certbot (Let's Encrypt)** / Automatic **SSL certificate** generation via **Certbot**
+- Création d’une **base de données GLPI** / Creation of a **GLPI database**
+- Configuration automatique des **permissions** / Automatic **permissions** configuration
 - Interface d’installation prête à l’emploi à la fin du script / Ready-to-use installation interface at the end of the script
 
 ---
