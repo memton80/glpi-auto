@@ -50,7 +50,7 @@ sudo ./install-glpi-https.sh
 ```
 Pendant l’installation, le script vous demandera / During installation, the script will prompt you for :
 
-Le nom de domaine (ex : glpi.exemple.fr) / The domain name (e.g., glpi.example.com)
+Le nom de domaine (ex : glpi.exemple.fr) oul'adress IP / The domain name (e.g., glpi.example.com) or IP address
 
 Le mot de passe MariaDB root / The MariaDB root password
 
