@@ -59,6 +59,7 @@ Pendant l’installation, le script vous demandera / During installation, the sc
 
 - Le nom de domaine (ex : glpi.exemple.fr) ou l'adress IP / The domain name (e.g., glpi.example.com) or IP address
 - Le mot de passe que vous voulez définir pour le compte glpi et MariaDB / The password you want to set for the GLPI account and MariaDB
+- Pour le **HTTPS**, il vous demandera la durée du certificat (auto-signé) / For the **HTTPS**, it will ask you the duration of the certificate (self-signed)
 > [!NOTE]
 > Identifiants par défaut pour glpi / Default credentials for glpi :  **glpi**
 >
