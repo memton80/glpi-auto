@@ -34,6 +34,13 @@ Avant de lancer le script / Before running the script :
 ---
 
 ## ⚙️ Installation / Installation
+> [!NOTE]
+> Pour les machines virtuelle :
+> Attention à la configuration des interfaces !
+>
+> For virtual machines:
+> Pay attention to the configuration of the interfaces!
+
 
 1. **Cloner le dépôt / Clone the repository :**
 ```bash
@@ -71,7 +78,7 @@ Pendant l’installation, le script vous demandera / During installation, the sc
 
 > [!WARNING]
 >Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
-
+---
 ### 🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
 Une fois le script terminé, accédez à votre interface GLPI via / Once the script completes, access your GLPI interface via :
 
