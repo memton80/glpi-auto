@@ -93,7 +93,6 @@ sudo systemctl restart apache2
 ```
 
 > [!TIP]
->💡 Astuce / Tip :
 >Le script est prévu pour une utilisation sur un serveur propre.
 >Si vous avez déjà un site sur le port 443, pensez à créer un VirtualHost distinct ou à modifier le port HTTPS avant l’exécution.
 >This script is designed for a clean server environment.
@@ -104,7 +103,7 @@ sudo systemctl restart apache2
 >Ce script simplifie le déploiement complet de GLPI — de l’installation à la configuration HTTPS, le tout en une seule commande.
 >This script simplifies the complete deployment of GLPI — from installation to HTTPS configuration, all in a single command.
 
-## Avertissement légal / Legal disclaimer 
+## 📖 Avertissement légal / Legal disclaimer 
 > [!WARNING]
 > L'utilisateur reconnaît et accepte que l'auteur du script ne peut être tenu pour responsable des éventuelles failles de sécurité, vulnérabilités ou dommages résultant de l'utilisation ou de
 > l'installation du script. L'utilisation du script se fait sous la seule responsabilité de l'utilisateur, qui s'engage à en évaluer les risques et à prendre les mesures de sécurité appropriées.
