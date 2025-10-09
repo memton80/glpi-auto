@@ -44,6 +44,10 @@ cd glpi-auto
 ```
 2. Donner les droits d’exécution / Grant execution permissions :
 ```bash
+sudo chmod +x install-glpi-https.sh
+```
+ou / or
+```bash
 chmod +x install-glpi-https.sh
 ```
 3. Lancer le script / Run the script :
