@@ -53,8 +53,7 @@ le mot de passe de la base GLPI
 🌐 Accès à l’interface GLPI
 Une fois le script terminé, accédez à votre interface GLPI via :
 
-Copier le code
-https://votre-domaine/
+https://votre-domaine/ ou https://X.X.X.X/
 
 Les identifiants par défaut sont :
 Utilisateur : glpi
