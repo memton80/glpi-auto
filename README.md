@@ -25,9 +25,9 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically i
 
 Avant de lancer le script / Before running the script :
 
-- Un système **Debian 12 / Ubuntu 22.04 ou supérieur** / A Debian 12 / Ubuntu 22.04 or higher system
-- Accès **root** ou via `sudo` / Root access or sudo privileges
-- Un **nom de domaine** pointant vers le serveur / A domain name pointing to the server
+- Un système **Debian 12 / Ubuntu 22.04 ou supérieur** / **A Debian 12 / Ubuntu 22.04 or higher system**
+- Accès **root** ou via `sudo` / **root** access or `sudo` privileges
+- Un **nom de domaine** pointant vers le serveur ou l'adress IP du serveur/ A domain name pointing to the server or the IP address of the server
 - Ports **80 (HTTP)** et **443 (HTTPS)** ouverts / Open ports 80 (HTTP) and 443 (HTTPS)
 - Connexion Internet active / Active internet connection
 
@@ -46,11 +46,11 @@ Copier le code
 chmod +x install-glpi-https.sh
 Lancer le script / Run the script :
  ```bash
-sudo ./install-glpi-https.sh
+sudo bash ./install-glpi-https.sh
 ```
 Pendant l’installation, le script vous demandera / During installation, the script will prompt you for :
 
-Le nom de domaine (ex : glpi.exemple.fr) oul'adress IP / The domain name (e.g., glpi.example.com) or IP address
+Le nom de domaine (ex : glpi.exemple.fr) ou l'adress IP / The domain name (e.g., glpi.example.com) or IP address
 
 Le mot de passe MariaDB root / The MariaDB root password
 
