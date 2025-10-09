@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 🎛️ Script d'installation interactive de GLPI pour Debian 12
-# 🧑‍💻 Par Alexandre (avec l'aide de ChatGPT4o)
+# 🧑‍💻 Par Alexandre
 
 export PATH=$PATH:/usr/sbin:/sbin
 
@@ -61,7 +61,7 @@ mysql_secure_installation
 rm -f "$GLPI_ARCHIVE"
 GLPI_URL=$(wget -qO- https://api.github.com/repos/glpi-project/glpi/releases/latest | grep browser_download_url | grep glpi.tgz | cut -d '"' -f 4)
 if [[ -z "$GLPI_URL" ]]; then
-  GLPI_URL="https://github.com/glpi-project/glpi/releases/download/10.0.18/glpi-10.0.18.tgz"
+  GLPI_URL="https://github.com/glpi-project/glpi/releases/download/11.0.0/glpi-11.0.0.tgz"
 fi
 
 {
