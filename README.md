@@ -57,12 +57,8 @@ bash ./install-glpi-https.sh
 
 Pendant l’installation, le script vous demandera / During installation, the script will prompt you for :
 
-Le nom de domaine (ex : glpi.exemple.fr) ou l'adress IP / The domain name (e.g., glpi.example.com) or IP address
-
-> [!NOTE]
->Le mot de passe MariaDB root / The MariaDB root password
->
->Le mot de passe de la base GLPI / The GLPI database password
+- Le nom de domaine (ex : glpi.exemple.fr) ou l'adress IP / The domain name (e.g., glpi.example.com) or IP address
+- Le mot de passe que vous voulez définir pour le compte glpi et MariaDB / The password you want to set for the GLPI account and MariaDB
 
 ### 🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
 Une fois le script terminé, accédez à votre interface GLPI via / Once the script completes, access your GLPI interface via :
