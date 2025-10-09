@@ -72,6 +72,11 @@ Une fois le script terminé, accédez à votre interface GLPI via / Once the scr
 > [!WARNING]
 >Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
 
+> [!TIP]
+> Si vous avez oublié le mot de passe défini pour l'utilisateur GLPI ou l'adresse IP/domaine qui a été fini, le script l'affiche à la fin de l'installation / If you have forgotten the password set for the GLPI user or the IP/domain address that has been finished, the script displays it at the end of the installation
+
+
+
 🛠️ Désinstallation / Uninstallation
 Pour supprimer GLPI et ses dépendances / To remove GLPI and its dependencies :
  ```bash
