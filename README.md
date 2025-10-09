@@ -64,10 +64,11 @@ https://your-domain/ or https://X.X.X.X/
 
 > [!NOTE]
 > Identifiants par défaut / Default credentials :
->Utilisateur / Username : glpi
->Mot de passe / Password : glpi
+>Utilisateur / Username : **glpi**
+>  Mot de passe / Password : **glpi**
 
-Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
+> [!WARNING]
+>Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
 
 🛠️ Désinstallation / Uninstallation
 Pour supprimer GLPI et ses dépendances / To remove GLPI and its dependencies :
