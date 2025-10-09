@@ -84,11 +84,12 @@ Projet / Project : GLPI Auto Installer
 
 Licence / License : GPL
 
-💡 Astuce / Tip :
-Le script est prévu pour une utilisation sur un serveur propre.
-Si vous avez déjà un site sur le port 443, pensez à créer un VirtualHost distinct ou à modifier le port HTTPS avant l’exécution.
-This script is designed for a clean server environment.
-If you already have a site running on port 443, consider creating a separate VirtualHost or modifying the HTTPS port before execution.
+> [!TIPS]
+>💡 Astuce / Tip :
+>Le script est prévu pour une utilisation sur un serveur propre.
+>Si vous avez déjà un site sur le port 443, pensez à créer un VirtualHost distinct ou à modifier le port HTTPS avant l’exécution.
+>This script is designed for a clean server environment.
+>If you already have a site running on port 443, consider creating a separate VirtualHost or modifying the HTTPS port before execution.
 
 🧰 Objectif / Purpose
 Ce script simplifie le déploiement complet de GLPI — de l’installation à la configuration HTTPS, le tout en une seule commande.
