@@ -58,7 +58,7 @@ Le mot de passe MariaDB root / The MariaDB root password
 
 Le mot de passe de la base GLPI / The GLPI database password
 
-🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
+### 🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
 Une fois le script terminé, accédez à votre interface GLPI via / Once the script completes, access your GLPI interface via :
 
 `https://votre-domaine/ ou https://X.X.X.X/`
