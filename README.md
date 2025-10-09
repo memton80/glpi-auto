@@ -65,9 +65,9 @@ Pendant l’installation, le script vous demandera / During installation, the sc
 - Le mot de passe que vous voulez définir pour le compte glpi et MariaDB / The password you want to set for the GLPI account and MariaDB
 - Pour le **HTTPS**, il vous demandera la durée du certificat (auto-signé) / For the **HTTPS**, it will ask you the duration of the certificate (self-signed)
 > [!NOTE]
-> Identifiants par défaut pour glpi / Default credentials for glpi :  **glpi**
+> Identifiants par défaut pour glpi / Default credentials for glpi :  **`glpi`**
 >
->  Mot de passe / Password : **glpi**
+>  Mot de passe / Password : **`glpi`**
 
 > [!WARNING]
 >Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
@@ -93,7 +93,9 @@ sudo apt remove --purge apache2 mariadb-server php* -y
 sudo rm -rf /var/www/html/glpi /etc/apache2/sites-available/glpi.conf
 sudo systemctl restart apache2
 ```
-
+> [!NOTE]
+> Dans le futur, un script le fera automatiquement / In the future, a script will do it automatically
+---
 > [!TIP]
 >Le script est prévu pour une utilisation sur un serveur propre.
 >Si vous avez déjà un site sur le port 443, pensez à créer un VirtualHost distinct ou à modifier le port HTTPS avant l’exécution.
