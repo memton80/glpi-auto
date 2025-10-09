@@ -64,8 +64,7 @@ Une fois le script terminé, accédez à votre interface GLPI via / Once the scr
 `https://your-domain/ or https://X.X.X.X/`
 
 > [!NOTE]
-> Identifiants par défaut / Default credentials :
->Utilisateur / Username : **glpi**
+> Identifiants par défaut / Default credentials :  **glpi**
 >
 >  Mot de passe / Password : **glpi**
 
