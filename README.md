@@ -104,6 +104,13 @@ sudo systemctl restart apache2
 >Ce script simplifie le déploiement complet de GLPI — de l’installation à la configuration HTTPS, le tout en une seule commande.
 >This script simplifies the complete deployment of GLPI — from installation to HTTPS configuration, all in a single command.
 
+
+> [!WARNING]
+> L'utilisateur reconnaît et accepte que l'auteur du script ne peut être tenu pour responsable des éventuelles failles de sécurité, vulnérabilités ou dommages résultant de l'utilisation ou de
+> l'installation du script. L'utilisation du script se fait sous la seule responsabilité de l'utilisateur, qui s'engage à en évaluer les risques et à prendre les mesures de sécurité appropriées.
+>
+> The user acknowledges and agrees that the script author shall not be liable for any security vulnerabilities, breaches, or damages arising from the use or installation of the script. The use of the script is at the user's sole risk, and the user is responsible for assessing the risks and implementing appropriate security measures.
+
 Auteur / Author : memton80
 
 Projet / Project : GLPI Auto Installer
