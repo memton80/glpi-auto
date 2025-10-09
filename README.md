@@ -34,10 +34,10 @@ Avant de lancer le script :
 ## ⚙️ Installation
 
 # 1. Cloner le dépôt
- ```` ```bash ````
+ ```bash ````
 git clone https://github.com/memton80/glpi-auto.git
 cd glpi-auto
-```` ``` ````
+```` `
 # 2. Donner les droits d’exécution
 chmod +x install-glpi-https.sh
 
