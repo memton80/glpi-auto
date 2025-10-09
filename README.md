@@ -79,12 +79,6 @@ sudo apt remove --purge apache2 mariadb-server php* -y
 sudo rm -rf /var/www/html/glpi /etc/apache2/sites-available/glpi.conf
 sudo systemctl restart apache2
 ```
-🪪 Auteur / Author
-Auteur / Author : memton80
-
-Projet / Project : GLPI Auto Installer
-
-Licence / License : GPL
 
 > [!TIP]
 >💡 Astuce / Tip :
@@ -97,3 +91,9 @@ Licence / License : GPL
 >🧰 Objectif / Purpose
 >Ce script simplifie le déploiement complet de GLPI — de l’installation à la configuration HTTPS, le tout en une seule commande.
 >This script simplifies the complete deployment of GLPI — from installation to HTTPS configuration, all in a single command.
+
+Auteur / Author : memton80
+
+Projet / Project : GLPI Auto Installer
+
+Licence / License : GPL
