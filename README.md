@@ -50,6 +50,11 @@ Lancer le script / Run the script :
  ```bash
 sudo bash ./install-glpi-https.sh
 ```
+ou / or
+ ```bash
+bash ./install-glpi-https.sh
+```
+
 Pendant l’installation, le script vous demandera / During installation, the script will prompt you for :
 
 Le nom de domaine (ex : glpi.exemple.fr) ou l'adress IP / The domain name (e.g., glpi.example.com) or IP address
