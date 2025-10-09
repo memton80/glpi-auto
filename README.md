@@ -42,11 +42,11 @@ git clone https://github.com/memton80/glpi-auto.git
 ```bash
 cd glpi-auto
 ```
-Donner les droits d’exécution / Grant execution permissions :
+2. Donner les droits d’exécution / Grant execution permissions :
 ```bash
 chmod +x install-glpi-https.sh
 ```
-Lancer le script / Run the script :
+3. Lancer le script / Run the script :
  ```bash
 sudo bash ./install-glpi-https.sh
 ```
