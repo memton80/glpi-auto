@@ -66,6 +66,7 @@ Une fois le script terminé, accédez à votre interface GLPI via / Once the scr
 > [!NOTE]
 > Identifiants par défaut / Default credentials :
 >Utilisateur / Username : **glpi**
+>
 >  Mot de passe / Password : **glpi**
 
 > [!WARNING]
