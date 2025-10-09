@@ -45,10 +45,9 @@ bash
 Copier le code
 chmod +x install-glpi-https.sh
 Lancer le script / Run the script :
-
-bash
-Copier le code
+ ```bash
 sudo ./install-glpi-https.sh
+```
 Pendant l’installation, le script vous demandera / During installation, the script will prompt you for :
 
 Le nom de domaine (ex : glpi.exemple.fr) / The domain name (e.g., glpi.example.com)
@@ -60,26 +59,23 @@ Le mot de passe de la base GLPI / The GLPI database password
 🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
 Une fois le script terminé, accédez à votre interface GLPI via / Once the script completes, access your GLPI interface via :
 
-perl
-Copier le code
 https://votre-domaine/ ou https://X.X.X.X/
 https://your-domain/ or https://X.X.X.X/
-Identifiants par défaut / Default credentials :
 
-Utilisateur / Username : glpi
-
-Mot de passe / Password : glpi
+> [!NOTE]
+> Identifiants par défaut / Default credentials :
+>Utilisateur / Username : glpi
+>Mot de passe / Password : glpi
 
 Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
 
 🛠️ Désinstallation / Uninstallation
 Pour supprimer GLPI et ses dépendances / To remove GLPI and its dependencies :
-
-bash
-Copier le code
+ ```bash
 sudo apt remove --purge apache2 mariadb-server php* -y
 sudo rm -rf /var/www/html/glpi /etc/apache2/sites-available/glpi.conf
 sudo systemctl restart apache2
+```
 🪪 Auteur / Author
 Auteur / Author : memton80
 
