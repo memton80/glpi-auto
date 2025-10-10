@@ -76,7 +76,7 @@ Pendant l’installation, le script vous demandera / During installation, the sc
 >
 >  Mot de passe / Password : **`glpi`**
 
-> [!WARNING]
+> [!CAUTION]
 >Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
 ---
 ### 🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
