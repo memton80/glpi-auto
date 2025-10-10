@@ -34,7 +34,7 @@ Avant de lancer le script / Before running the script :
 ---
 
 ## ⚙️ Installation / Installation
-> [!NOTE]
+> [!IMPORTANT]
 > Pour les machines virtuelle :
 > Attention à la configuration des interfaces !
 >
