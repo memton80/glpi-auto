@@ -41,15 +41,22 @@ Avant de lancer le script / Before running the script :
 > For virtual machines:
 > Pay attention to the configuration of the interfaces!
 
-
-1. **Cloner le dépôt / Clone the repository :**
+1. **Installer git / Install git :**
+```bash
+sudo apt insatll git
+```
+ou / or
+```bash
+apt insatll git
+```
+2. **Cloner le dépôt / Clone the repository :**
 ```bash
 git clone https://github.com/memton80/glpi-auto.git
 ```
 ```bash
 cd glpi-auto
 ```
-2. Donner les droits d’exécution / Grant execution permissions :
+3. **Donner les droits d’exécution / Grant execution permissions :**
 ```bash
 sudo chmod +x install-glpi-https.sh
 ```
@@ -57,7 +64,7 @@ ou / or
 ```bash
 chmod +x install-glpi-https.sh
 ```
-3. Lancer le script / Run the script :
+4. **Lancer le script / Run the script :**
  ```bash
 sudo bash ./install-glpi-https.sh
 ```
