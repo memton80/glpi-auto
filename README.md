@@ -96,7 +96,7 @@ Une fois le script terminé, accédez à votre interface GLPI via / Once the scr
 
 
 > [!TIP]
-> Si vous avez oublié le mot de passe défini pour l'utilisateur GLPI ou l'adresse IP/domaine qui a été fini, le script l'affiche à la fin de l'installation / If you have forgotten the password set for the GLPI user or the IP/domain address that has been finished, the script displays it at the end of the installation
+> Si vous avez oublié le mot de passe défini pour l'utilisateur MariaDB ou l'adresse IP/domaine qui a été fini, le script l'affiche à la fin de l'installation / If you have forgotten the password set for the MariaDB user or the IP/domain address that has been finished, the script displays it at the end of the installation
 
 
 
