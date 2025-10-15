@@ -139,3 +139,4 @@ bash uninstall-glpi.sh
 - [x] 🌐 Prise en charge de la langue anglaise / English language support
 - [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
 - [ ] 🌍 Support multi-langue / Multi-language support
+- [ ] support de Debian 13 / support for Debian 13 
