@@ -211,7 +211,7 @@ echo "Module rewrite activé et .htaccess généré"
 
 # Fin
 IP=$(hostname -I | awk '{print $1}')
-whiptail --title "Installation terminée" --msgbox "GLPI est installé avec succès !\n\nAdresse : https://$DOMAIN/\nIP locale : $IP\nUtilisateur par défaut : glpi / glpi" 14 60
+whiptail --title "Installation terminée" --msgbox "GLPI est installé avec succès !\n\nAdresse : https://$DOMAIN/\nIP locale : $IP\nUtilisateur de la basse : glpiuser" 14 60
 
 # Désinstallateur
 if whiptail --title "Uninstall" --yesno "$MSG_UNINSTALL_PROMPT" 10 60; then
