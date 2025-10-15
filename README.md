@@ -1,7 +1,7 @@
 # 🚀 Script d’installation automatique de GLPI avec HTTPS / Automatic GLPI Installation Script with HTTPS
 <p align="center">
   <img src="https://img.shields.io/badge/Built%20with-Bash-1f425f?style=for-the-badge">
-  <img src="https://img.shields.io/badge/License-GLP-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/License-GPL-green?style=for-the-badge">
   <img src="https://img.shields.io/badge/GLPI-11.0.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/OS-Debian%2FUbuntu-yellow?style=for-the-badge">
 </p>
@@ -138,7 +138,9 @@ bash uninstall-glpi.sh
 # 🔜 GLPI-AUTO Roadmap / To‑Do List des futures versions
 - [x] 🌐 Prise en charge de la langue anglaise / English language support
 - [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
+- [ ] Installation assistée de la base MariaDB / Assisted installation of the MariaDB database
 - [ ] 🌍 Support multi-langue / Multi-language support
 - [ ] 🐧 Support de Debian 13 / Support for Debian 13
 - [ ] 💻 Support multi-OS / Multi-OS support
+
 
