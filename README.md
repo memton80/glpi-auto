@@ -136,6 +136,6 @@ bash uninstall-glpi.sh
 
 ---
 # GLPI-AUTO Roadmap / To‑Do List des futures versions
-- [x] Prise en charge de la langue anglaise / English language support
-- [x] SScript de désinstallation automatique / Automatic uninstall script
-- [ ] Support multi-langue / Multi-language support
+- [x] 🌐 Prise en charge de la langue anglaise / English language support
+- [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
+- [ ] 🌍 Support multi-langue / Multi-language support
