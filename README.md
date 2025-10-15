@@ -109,12 +109,12 @@ Une fois le script terminé, accédez à votre interface GLPI via / Once the scr
 ## 🛠️ Désinstallation / Uninstallation
 Pour supprimer GLPI et ses dépendances / To remove GLPI and its dependencies :
  ```bash
-sudo apt remove --purge apache2 mariadb-server php* -y
-sudo rm -rf /var/www/html/glpi /etc/apache2/sites-available/glpi.conf
-sudo systemctl restart apache2
+sudo bash uninstall-glpi.sh
 ```
-> [!NOTE]
-> Dans le futur, un script le fera automatiquement / In the future, a script will do it automatically
+ou / or
+ ```bash
+bash uninstall-glpi.sh
+```
 ---
 > [!TIP]
 >Le script est prévu pour une utilisation sur un serveur propre.
@@ -133,3 +133,9 @@ sudo systemctl restart apache2
 > l'installation du script. L'utilisation du script se fait sous la seule responsabilité de l'utilisateur, qui s'engage à en évaluer les risques et à prendre les mesures de sécurité appropriées.
 >
 > The user acknowledges and agrees that the script author shall not be liable for any security vulnerabilities, breaches, or damages arising from the use or installation of the script. The use of the script is at the user's sole risk, and the user is responsible for assessing the risks and implementing appropriate security measures.
+
+---
+# GLPI-AUTO Roadmap / To‑Do List des futures versions
+- [x] Prise en charge de la langue anglaise / English language support
+- [x] SScript de désinstallation automatique / Automatic uninstall script
+- [ ] Support multi-langue / Multi-language support
