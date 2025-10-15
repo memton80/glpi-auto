@@ -1,6 +1,6 @@
 #!/bin/bash
-# 🎛️ Script d'installation interactive de GLPI pour Debian 12
-# 🧑‍💻 Par Alexandre
+# Script d'installation interactive de GLPI pour Debian 12
+# Par Alexandre
 export PATH=$PATH:/usr/sbin:/sbin
 
 # Menu de sélection de langue
@@ -10,7 +10,7 @@ LANG_CHOICE=$(whiptail --title "Language Selection" --menu "Choose your language
   3>&1 1>&2 2>&3)
 
 if [ $? -ne 0 ]; then
-  echo "❌ Installation annulée par l'utilisateur."
+  echo "Installation annulée par l'utilisateur."
   exit 1
 fi
 
@@ -22,44 +22,44 @@ fi
 
 # Définir les messages en fonction de la langue choisie
 if [ "$LANG" = "fr" ]; then
-  MSG_ROOT_CHECK="🚫 Ce script doit être exécuté avec sudo ou en tant que root."
-  MSG_INSTALL_CANCEL="❌ Installation annulée par l'utilisateur."
-  MSG_UPDATE_DEPS="📦 Mise à jour des paquets et installation des dépendances..."
+  MSG_ROOT_CHECK="Ce script doit être exécuté avec sudo ou en tant que root."
+  MSG_INSTALL_CANCEL="Installation annulée par l'utilisateur."
+  MSG_UPDATE_DEPS="Mise à jour des paquets et installation des dépendances..."
   MSG_DB_NAME="Entrez le nom de la base MySQL :"
   MSG_DB_USER="Entrez le nom d'utilisateur MySQL :"
-  MSG_DB_PASS_GEN="🔐 Souhaitez-vous que le script génère un mot de passe fort automatiquement pour l'utilisateur"
+  MSG_DB_PASS_GEN="Souhaitez-vous que le script génère un mot de passe fort automatiquement pour l'utilisateur"
   MSG_DB_PASS_GEN_TITLE="Mot de passe MySQL"
-  MSG_DB_PASS_GEN_MSG="🔐 Mot de passe MySQL généré automatiquement :\n\n"
+  MSG_DB_PASS_GEN_MSG="Mot de passe MySQL généré automatiquement :\n\n"
   MSG_DB_PASS_PROMPT="Entrez le mot de passe de l'utilisateur"
   MSG_SECURE_MDB="Vous allez maintenant être invité à sécuriser votre installation MariaDB."
-  MSG_DOWNLOAD_GLPI="📦 Téléchargement et extraction de GLPI..."
-  MSG_APACHE_CONFIG="🌍 Configuration d'Apache..."
-  MSG_FINISHED="✅ GLPI est installé avec succès !\n\n➡️ Adresse : https://\$DOMAIN/\n📡 IP locale : \$IP\n👤 Utilisateur par défaut : glpi / glpi\n\n                     🐾"
+  MSG_DOWNLOAD_GLPI="Téléchargement et extraction de GLPI..."
+  MSG_APACHE_CONFIG="Configuration d'Apache..."
+  MSG_FINISHED="GLPI est installé avec succès !\n\nAdresse : https://\$DOMAIN/\nIP locale : \$IP\nUtilisateur par défaut : glpi / glpi"
   MSG_UNINSTALL_PROMPT="Souhaitez-vous créer un script de désinstallation automatique ?"
-  MSG_UNINSTALL_SCRIPT="🧽 Script créé : ./uninstall-glpi.sh"
-  MSG_CONTINUE_INSTALL="⚠️ Ce script effectue une installation *automatique* de GLPI avec les paramètres courants.\n\n✅ Idéal pour un test rapide ou un petit déploiement.\n\n🛠️ Pour une configuration avancée (LDAP, plugins, sécurité renforcée), il est recommandé de passer par l'installation manuelle via l'interface graphique après avoir accédé à https://<votre_domaine/ip local>/\n\nSouhaitez-vous continuer ?"
-  MSG_GEN_PASS_PROMPT="🔐 Souhaitez-vous que le script génère un mot de passe fort automatiquement pour l'utilisateur"
+  MSG_UNINSTALL_SCRIPT="Script créé : ./uninstall-glpi.sh"
+  MSG_CONTINUE_INSTALL="Ce script effectue une installation *automatique* de GLPI avec les paramètres courants.\n\nIdéal pour un test rapide ou un petit déploiement.\n\nPour une configuration avancée (LDAP, plugins, sécurité renforcée), il est recommandé de passer par l'installation manuelle via l'interface graphique après avoir accédé à https://<votre_domaine/ip local>/\n\nSouhaitez-vous continuer ?"
+  MSG_GEN_PASS_PROMPT="Souhaitez-vous que le script génère un mot de passe fort automatiquement pour l'utilisateur"
   MSG_SSL_CERT_PROMPT="Voulez-vous créer un certificat HTTPS auto-signé pour"
   MSG_TEST_MENU="Souhaitez-vous exécuter quelques tests pour vérifier l'installation ?"
   MSG_TEST_RESULTS="Tests effectués avec succès !"
 else
-  MSG_ROOT_CHECK="🚫 This script must be run with sudo or as root."
-  MSG_INSTALL_CANCEL="❌ Installation cancelled by the user."
-  MSG_UPDATE_DEPS="📦 Updating packages and installing dependencies..."
+  MSG_ROOT_CHECK="This script must be run with sudo or as root."
+  MSG_INSTALL_CANCEL="Installation cancelled by the user."
+  MSG_UPDATE_DEPS="Updating packages and installing dependencies..."
   MSG_DB_NAME="Enter the MySQL database name:"
   MSG_DB_USER="Enter the MySQL username:"
-  MSG_DB_PASS_GEN="🔐 Do you want the script to automatically generate a strong password for the user"
+  MSG_DB_PASS_GEN="Do you want the script to automatically generate a strong password for the user"
   MSG_DB_PASS_GEN_TITLE="MySQL Password"
-  MSG_DB_PASS_GEN_MSG="🔐 Automatically generated MySQL password:\n\n"
+  MSG_DB_PASS_GEN_MSG="Automatically generated MySQL password:\n\n"
   MSG_DB_PASS_PROMPT="Enter the password for the user"
   MSG_SECURE_MDB="You will now be prompted to secure your MariaDB installation."
-  MSG_DOWNLOAD_GLPI="📦 Downloading and extracting GLPI..."
-  MSG_APACHE_CONFIG="🌍 Configuring Apache..."
-  MSG_FINISHED="✅ GLPI is successfully installed!\n\n➡️ Address: https://\$DOMAIN/\n📡 Local IP: \$IP\n👤 Default user: glpi / glpi\n\n                     🐾"
+  MSG_DOWNLOAD_GLPI="Downloading and extracting GLPI..."
+  MSG_APACHE_CONFIG="Configuring Apache..."
+  MSG_FINISHED="GLPI is successfully installed!\n\nAddress: https://\$DOMAIN/\nLocal IP: \$IP\nDefault user: glpi / glpi"
   MSG_UNINSTALL_PROMPT="Do you want to create an automatic uninstall script?"
-  MSG_UNINSTALL_SCRIPT="🧽 Script created: ./uninstall-glpi.sh"
-  MSG_CONTINUE_INSTALL="⚠️ This script performs an *automatic* installation of GLPI with the default settings.\n\n✅ Ideal for a quick test or small deployment.\n\n🛠️ For advanced configuration (LDAP, plugins, enhanced security), it is recommended to proceed with manual installation via the graphical interface after accessing https://<your_domain/local_ip>/\n\nDo you want to continue?"
-  MSG_GEN_PASS_PROMPT="🔐 Do you want the script to automatically generate a strong password for the user"
+  MSG_UNINSTALL_SCRIPT="Script created: ./uninstall-glpi.sh"
+  MSG_CONTINUE_INSTALL="This script performs an *automatic* installation of GLPI with the default settings.\n\nIdeal for a quick test or small deployment.\n\nFor advanced configuration (LDAP, plugins, enhanced security), it is recommended to proceed with manual installation via the graphical interface after accessing https://<your_domain/local_ip>/\n\nDo you want to continue?"
+  MSG_GEN_PASS_PROMPT="Do you want the script to automatically generate a strong password for the user"
   MSG_SSL_CERT_PROMPT="Do you want to create a self-signed HTTPS certificate for"
   MSG_TEST_MENU="Do you want to run some tests to verify the installation?"
   MSG_TEST_RESULTS="Tests completed successfully!"
@@ -76,17 +76,17 @@ if ! whiptail --title "GLPI Installation" --yesno "$MSG_CONTINUE_INSTALL" 16 70;
   exit 1
 fi
 
-# 🌐 Test de connexion Internet (HTTP)
+# Test de connexion Internet (HTTP)
 if ! wget -q --spider https://google.com; then
   if [ "$LANG" = "fr" ]; then
-    whiptail --title "Erreur de connexion" --msgbox "❌ Aucune connexion Internet détectée.\nVérifiez votre réseau puis relancez le script." 10 60
+    whiptail --title "Erreur de connexion" --msgbox "Aucune connexion Internet détectée.\nVérifiez votre réseau puis relancez le script." 10 60
   else
-    whiptail --title "Connection Error" --msgbox "❌ No Internet connection detected.\nCheck your network and try again." 10 60
+    whiptail --title "Connection Error" --msgbox "No Internet connection detected.\nCheck your network and try again." 10 60
   fi
   exit 1
 fi
 
-# 🗖️ Mise à jour & installation des dépendances
+# Mise à jour & installation des dépendances
 {
   echo 10; sleep 0.3
   apt update -y &> /dev/null
@@ -98,13 +98,13 @@ fi
   echo 100; sleep 0.3
 } | whiptail --gauge "$MSG_UPDATE_DEPS" 6 60 0
 
-# 📦 Infos base de données
+# Infos base de données
 DB_NAME=$(whiptail --title "Database Name" --inputbox "$MSG_DB_NAME" 10 60 "glpidb" 3>&1 1>&2 2>&3)
 DB_USER=$(whiptail --title "MySQL User" --inputbox "$MSG_DB_USER" 10 60 "glpiuser" 3>&1 1>&2 2>&3)
 
 if whiptail --title "$MSG_DB_PASS_GEN_TITLE" --yesno "$MSG_GEN_PASS_PROMPT $DB_USER ?" 10 60; then
   DB_PASS=$(openssl rand -base64 16 | tr -d '=+/[:space:]' | cut -c1-16)
-  whiptail --title "$MSG_DB_PASS_GEN_TITLE" --msgbox "$MSG_DB_PASS_GEN_MSG\n\n$DB_PASS\n\n💡 Pensez à le copier ou le noter." 12 60
+  whiptail --title "$MSG_DB_PASS_GEN_TITLE" --msgbox "$MSG_DB_PASS_GEN_MSG\n\n$DB_PASS\n\nPensez à le copier ou le noter." 12 60
 else
   DB_PASS=$(whiptail --title "$MSG_DB_PASS_GEN_TITLE" --passwordbox "$MSG_DB_PASS_PROMPT $DB_USER :" 10 60 3>&1 1>&2 2>&3)
 fi
@@ -112,7 +112,7 @@ fi
 GLPI_DIR="/var/www/html/glpi"
 GLPI_ARCHIVE="/tmp/glpi.tgz"
 
-# 🔄 MySQL
+# MySQL
 mysql -e "CREATE DATABASE IF NOT EXISTS $DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -e "DROP USER IF EXISTS '$DB_USER'@'localhost';"
 mysql -e "CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
@@ -122,7 +122,7 @@ mysql -e "FLUSH PRIVILEGES;"
 whiptail --title "MariaDB Securing" --msgbox "$MSG_SECURE_MDB" 10 60
 mysql_secure_installation
 
-# 📥 GLPI
+# GLPI
 rm -f "$GLPI_ARCHIVE"
 GLPI_URL=$(wget -qO- https://api.github.com/repos/glpi-project/glpi/releases/latest | grep browser_download_url | grep glpi.tgz | cut -d '"' -f 4)
 if [[ -z "$GLPI_URL" ]]; then
@@ -138,11 +138,11 @@ fi
   echo 100; sleep 0.3
 } | whiptail --gauge "$MSG_DOWNLOAD_GLPI" 6 60 0
 
-# 📂 Permissions
+# Permissions
 chown -R www-data:www-data "$GLPI_DIR"
 chmod -R 755 "$GLPI_DIR"
 
-# ⚙️ Apache - HTTP
+# Apache - HTTP
 cat << EOF > /etc/apache2/sites-available/glpi.conf
 <VirtualHost *:80>
     DocumentRoot $GLPI_DIR/public
@@ -154,7 +154,7 @@ cat << EOF > /etc/apache2/sites-available/glpi.conf
 </VirtualHost>
 EOF
 
-# 🔐 Apache - HTTPS auto-signé
+# Apache - HTTPS auto-signé
 DOMAIN=$(whiptail --title "Domain or IP" --inputbox "Entrez le nom de domaine ou l'adresse IP de votre serveur :" 10 60 3>&1 1>&2 2>&3)
 if whiptail --title "Self-signed HTTPS" --yesno "$MSG_SSL_CERT_PROMPT $DOMAIN ?" 10 60; then
   SSL_DIR="/etc/ssl/glpi"
@@ -181,11 +181,11 @@ EOF
   /usr/sbin/a2ensite glpi-ssl.conf
 fi
 
-# 🔁 Activation Apache
+# Activation Apache
 /usr/sbin/a2ensite glpi.conf
 systemctl reload apache2
 
-# 🌍 PHP config FR + secure
+# PHP config FR + secure
 PHP_INI_FILE="/etc/php/8.2/apache2/php.ini"
 if [ "$LANG" = "fr" ]; then
   sed -i "s/^;*intl.default_locale\s*=.*/intl.default_locale = fr_FR/" "$PHP_INI_FILE"
@@ -196,7 +196,7 @@ sed -i "s/^;*session.cookie_httponly\s*=.*/session.cookie_httponly = On/" "$PHP_
 sed -i "s/^;*session.cookie_secure\s*=.*/session.cookie_secure = On/" "$PHP_INI_FILE"
 systemctl reload apache2
 
-# 🔁 Activation du module rewrite et création du .htaccess
+# Activation du module rewrite et création du .htaccess
 /usr/sbin/a2enmod rewrite
 cat << 'EOF' > "$GLPI_DIR/public/.htaccess"
 <IfModule mod_rewrite.c>
@@ -207,13 +207,13 @@ cat << 'EOF' > "$GLPI_DIR/public/.htaccess"
 </IfModule>
 EOF
 systemctl restart apache2
-echo "✅ Module rewrite activé et .htaccess généré 🛠️"
+echo "Module rewrite activé et .htaccess généré"
 
-# ✅ Fin
+# Fin
 IP=$(hostname -I | awk '{print $1}')
-whiptail --title "Installation terminée 🚀" --msgbox "✅ GLPI est installé avec succès !\n\n➡️ Adresse : https://$DOMAIN/\n📡 IP locale : $IP\n👤 Utilisateur par défaut : glpi / glpi\n\n                     🐾" 14 60
+whiptail --title "Installation terminée" --msgbox "GLPI est installé avec succès !\n\nAdresse : https://$DOMAIN/\nIP locale : $IP\nUtilisateur par défaut : glpi / glpi" 14 60
 
-# 🗑️ Désinstallateur
+# Désinstallateur
 if whiptail --title "Uninstall" --yesno "$MSG_UNINSTALL_PROMPT" 10 60; then
   cat << REMOVE > uninstall-glpi.sh
 #!/bin/bash
@@ -224,7 +224,7 @@ rm /etc/apache2/sites-available/glpi.conf /etc/apache2/sites-available/glpi-ssl.
 systemctl reload apache2
 mysql -e "DROP DATABASE IF EXISTS $DB_NAME;"
 mysql -e "DROP USER IF EXISTS '$DB_USER'@'localhost';"
-echo "✅ GLPI et ses composants ont été supprimés."
+echo "GLPI et ses composants ont été supprimés."
 REMOVE
   chmod +x uninstall-glpi.sh
   whiptail --msgbox "$MSG_UNINSTALL_SCRIPT" 10 60
