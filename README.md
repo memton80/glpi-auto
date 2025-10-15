@@ -135,7 +135,7 @@ bash uninstall-glpi.sh
 > The user acknowledges and agrees that the script author shall not be liable for any security vulnerabilities, breaches, or damages arising from the use or installation of the script. The use of the script is at the user's sole risk, and the user is responsible for assessing the risks and implementing appropriate security measures.
 
 ---
-# GLPI-AUTO Roadmap / To‑Do List des futures versions
+# 🔜 GLPI-AUTO Roadmap / To‑Do List des futures versions
 - [x] 🌐 Prise en charge de la langue anglaise / English language support
 - [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
 - [ ] 🌍 Support multi-langue / Multi-language support
