@@ -138,7 +138,7 @@ bash uninstall-glpi.sh
 # 🔜 GLPI-AUTO Roadmap / To‑Do List des futures versions
 - [x] 🌐 Prise en charge de la langue anglaise / English language support
 - [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
-- [ ] Installation assistée de la base MariaDB / Assisted installation of the MariaDB database
+- [x] Installation assistée de la base MariaDB / Assisted installation of the MariaDB database
 - [ ] 🌍 Support multi-langue / Multi-language support
 - [ ] 🐧 Support de Debian 13 / Support for Debian 13
 - [ ] 💻 Support multi-OS / Multi-OS support
