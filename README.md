@@ -6,8 +6,7 @@
   <img src="https://img.shields.io/badge/OS-Debian%2FUbuntu-yellow?style=for-the-badge">
 </p>
 
-[![Security Policy](https://img.shields.io/badge/Security-Policy-blue?style=flat-square&logo=github)](https://github.com/memton80/glpi-auto/blob/main/SECURITY.md)
-
+---
 
 Ce projet contient un script Bash (`install-glpi-https.sh`) permettant d’installer **GLPI** sur un serveur **Debian/Ubuntu** de manière automatisée, avec **Apache**, **MariaDB**, **PHP**, et un **certificat SSL (Let's Encrypt)**.  
 This project contains a Bash script (`install-glpi-https.sh`) to automatically install **GLPI** on a Debian/Ubuntu server, including **Apache**, **MariaDB**, **PHP**, and an **SSL certificate (Let's Encrypt)**.
@@ -148,5 +147,8 @@ bash uninstall-glpi.sh
 - [ ] 🌍 Support multi-langue / Multi-language support
 - [ ] 🐧 Support de Debian 13 / Support for Debian 13
 - [ ] 💻 Support multi-OS / Multi-OS support
+---
+
+[![Security Policy](https://img.shields.io/badge/Security-Policy-blue?style=flat-square&logo=github)](https://github.com/memton80/glpi-auto/blob/main/SECURITY.md)
 
 
