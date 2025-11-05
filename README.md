@@ -1,7 +1,7 @@
 # 🚀 Script d’installation automatique de GLPI avec HTTPS / Automatic GLPI Installation Script with HTTPS
 <p align="center">
   <img src="https://img.shields.io/badge/Built%20with-Bash-1f425f?style=for-the-badge">
-  <img src="https://img.shields.io/badge/License-GPL-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/License-GPL 3.0-green?style=for-the-badge">
   <img src="https://img.shields.io/badge/GLPI-11.0.0-blue?style=for-the-badge">
   <img src="https://img.shields.io/badge/OS-Debian%2FUbuntu-yellow?style=for-the-badge">
 </p>
