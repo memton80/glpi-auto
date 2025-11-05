@@ -133,7 +133,10 @@ bash uninstall-glpi.sh
 > l'installation du script. L'utilisation du script se fait sous la seule responsabilité de l'utilisateur, qui s'engage à en évaluer les risques et à prendre les mesures de sécurité appropriées.
 >
 > The user acknowledges and agrees that the script author shall not be liable for any security vulnerabilities, breaches, or damages arising from the use or installation of the script. The use of the script is at the user's sole risk, and the user is responsible for assessing the risks and implementing appropriate security measures.
-
+---
+## Sources :
+-  Glpi github : https://github.com/glpi-project/glpi
+-  Documentation officielle / official documentation : https://glpi-install.readthedocs.io/en/latest/
 ---
 # 🔜 GLPI-AUTO Roadmap / To‑Do List des futures versions
 - [x] 🌐 Prise en charge de la langue anglaise / English language support
