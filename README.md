@@ -1,31 +1,82 @@
-# 🚀 Script d’installation automatique de GLPI avec HTTPS / Automatic GLPI Installation Script with HTTPS
+# 🚀 Script d'installation automatique de GLPI avec HTTPS / Automatic GLPI Installation Script with HTTPS
 <p align="center">
   <img src="https://img.shields.io/badge/Built%20with-Bash-1f425f?style=for-the-badge">
   <img src="https://img.shields.io/badge/License-GPL 3.0-green?style=for-the-badge">
-  <img src="https://img.shields.io/badge/GLPI-11.0.0-blue?style=for-the-badge">
-  <img src="https://img.shields.io/badge/OS-Debian%2FUbuntu-yellow?style=for-the-badge">
+  <img src="https://img.shields.io/badge/GLPI-11.0.0+-blue?style=for-the-badge">
+  <img src="https://img.shields.io/badge/OS-Debian%2012-yellow?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Security-Hardened-red?style=for-the-badge">
 </p>
 
 ---
 
-Ce projet contient un script Bash (`install-glpi-https.sh`) permettant d’installer **GLPI** sur un serveur **Debian/Ubuntu** de manière automatisée, avec **Apache**, **MariaDB**, **PHP**, et un **certificat SSL (Let's Encrypt)**.  
-This project contains a Bash script (`install-glpi-https.sh`) to automatically install **GLPI** on a Debian/Ubuntu server, including **Apache**, **MariaDB**, **PHP**, and an **SSL certificate (Let's Encrypt)**.
+Ce projet contient un script Bash (`install-glpi-https.sh`) permettant d'installer **GLPI** sur un serveur **Debian 12** de manière automatisée et **sécurisée**, avec **Apache**, **MariaDB**, **PHP 8.2**, et un **certificat SSL auto-signé**.  
+This project contains a Bash script (`install-glpi-https.sh`) to automatically and **securely** install **GLPI** on a Debian 12 server, including **Apache**, **MariaDB**, **PHP 8.2**, and a **self-signed SSL certificate**.
 
 ---
 
 ## 🧠 Fonctionnalités / Features
 
-- Installation automatique de **GLPI** (version stable depuis le site officiel)  
-  Automatic installation of **GLPI** (stable version from the official site)
-- Installation et configuration de / Installation and configuration of :  
-  - **Apache2**  
-  - **MariaDB**  
-  - **PHP et extensions nécessaires / PHP and required extensions**
-- Configuration d’un **VirtualHost HTTPS** / **HTTPS VirtualHost** configuration
-- Génération automatique d’un **certificat SSL** via **Certbot (Let's Encrypt)** / Automatic **SSL certificate** generation via **Certbot**
-- Création d’une **base de données GLPI** / Creation of a **GLPI database**
-- Configuration automatique des **permissions** / Automatic **permissions** configuration
-- Interface d’installation prête à l’emploi à la fin du script / Ready-to-use installation interface at the end of the script
+### 🎯 Installation automatisée / Automated Installation
+- ✅ Installation automatique de **GLPI** (dernière version stable depuis GitHub)  
+  Automatic installation of **GLPI** (latest stable version from GitHub)
+- ✅ Détection et téléchargement automatique de la dernière version  
+  Automatic detection and download of the latest version
+- ✅ Barre de progression réaliste pour chaque étape  
+  Real-time progress bars for each step
+
+### 🔧 Stack technique / Technical Stack
+- **Apache2** avec modules SSL et Rewrite / with SSL and Rewrite modules
+- **MariaDB** sécurisé / hardened
+- **PHP 8.2** avec toutes les extensions requises :
+  - mysql, xml, mbstring, curl, gd, intl, ldap, imap
+  - zip, bz2, cli, apcu, **bcmath**, **opcache**, **exif**
+- Configuration optimisée pour la production / Production-optimized configuration
+
+### 🔒 Sécurité renforcée / Enhanced Security
+- 🔐 **Sécurisation complète de MariaDB** / **Complete MariaDB hardening** :
+  - Mot de passe root obligatoire / Mandatory root password
+  - Suppression des utilisateurs anonymes / Anonymous users removed
+  - Suppression de la base de test / Test database removed
+  - Credentials sauvegardés dans `/root/.mysql_credentials` (chmod 600)
+- 🛡️ **Protection des répertoires sensibles** / **Sensitive directories protection** :
+  - Déplacement de `/files` et `/config` vers `/var/lib/glpi/`
+  - Protection par `.htaccess` contre les accès directs
+  - Permissions restrictives (750/770)
+- 🚫 **Validation des entrées** / **Input validation** :
+  - Anti-injection SQL pour les noms de bases et utilisateurs
+  - Regex strict (alphanumériques et underscores uniquement)
+- 🔥 **Pare-feu UFW optionnel** / **Optional UFW firewall** :
+  - Configuration automatique (ports 22, 80, 443)
+  - Politique par défaut : deny incoming
+- 📝 **Logs sécurisés** / **Secure logs** :
+  - Mots de passe masqués dans `/var/log/glpi-install.log`
+
+### 🌍 Interface multilingue / Multilingual Interface
+- 🇫🇷 Français
+- 🇬🇧 English
+- Système de traduction propre et extensible / Clean and extensible translation system
+- Tous les messages et dialogues traduits / All messages and dialogs translated
+
+### ⚙️ Configuration SSL / SSL Configuration
+- 🔐 Certificat HTTPS auto-signé / Self-signed HTTPS certificate
+- ⏱️ Durée personnalisable / Customizable validity period
+- 🌐 Support domaine ou IP / Domain or IP support
+
+### 🔄 Accès distant MariaDB / Remote MariaDB Access
+- ⚠️ Avertissement de sécurité bilingue / Bilingual security warning
+- 🔒 Choix entre local (127.0.0.1) ou réseau (0.0.0.0)
+- 📋 Instructions pour modification ultérieure / Instructions for later modification
+
+### 🧪 Tests de vérification / Verification Tests
+- ✅ Vérification du statut Apache / Apache status check
+- ✅ Vérification du statut MariaDB / MariaDB status check
+- ✅ Vérification de l'installation GLPI / GLPI installation check
+
+### 🗑️ Désinstallation automatique / Automatic Uninstallation
+- Script de désinstallation complet généré automatiquement  
+  Complete uninstall script automatically generated
+- Suppression propre de tous les composants / Clean removal of all components
+- Utilisation sécurisée des credentials MySQL / Secure use of MySQL credentials
 
 ---
 
@@ -33,122 +84,292 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically i
 
 Avant de lancer le script / Before running the script :
 
-- Un système **Debian 12 / Ubuntu 22.04 ou supérieur** / **A Debian 12 / Ubuntu 22.04 or higher system**
-- Accès **root** ou via `sudo` / **root** access or `sudo` privileges
-- Un **nom de domaine** pointant vers le serveur ou l'adress IP du serveur/ A domain name pointing to the server or the IP address of the server
-- Ports **80 (HTTP)** et **443 (HTTPS)** ouverts / Open ports 80 (HTTP) and 443 (HTTPS)
-- Connexion Internet active / Active internet connection
+- ✅ Un système **Debian 12** (Bookworm) / **A Debian 12** (Bookworm) system
+- ✅ Accès **root** ou via `sudo` / **root** access or `sudo` privileges
+- ✅ **2 Go de RAM minimum** / **Minimum 2 GB RAM**
+- ✅ **500 Mo d'espace disque** / **500 MB disk space**
+- ✅ Un **nom de domaine** ou **adresse IP** / A **domain name** or **IP address**
+- ✅ Ports **80 (HTTP)** et **443 (HTTPS)** disponibles / Available ports 80 and 443
+- ✅ Connexion Internet active / Active internet connection
 
 ---
 
 ## ⚙️ Installation / Installation
-> [!IMPORTANT]
-> Pour les machines virtuelle :
-> Attention à la configuration des interfaces !
->
-> For virtual machines:
-> Pay attention to the configuration of the interfaces!
 
-1. **Installer git / Install git :**
+> [!IMPORTANT]
+> **Pour les machines virtuelles / For virtual machines :**
+> - Vérifiez la configuration réseau (bridge ou NAT)  
+>   Check network configuration (bridge or NAT)
+> - Assurez-vous que les ports 80/443 sont accessibles  
+>   Ensure ports 80/443 are accessible
+> - Configurez correctement les interfaces réseau  
+>   Properly configure network interfaces
+
+### 1️⃣ Installer Git / Install Git
 ```bash
-sudo apt insatll git
+apt update && apt install git -y
 ```
-ou / or
-```bash
-apt insatll git
-```
-2. **Cloner le dépôt / Clone the repository :**
+
+### 2️⃣ Cloner le dépôt / Clone the repository
 ```bash
 git clone https://github.com/memton80/glpi-auto.git
-```
-```bash
 cd glpi-auto
 ```
-3. **Donner les droits d’exécution / Grant execution permissions :**
-```bash
-sudo chmod +x install-glpi-https.sh
-```
-ou / or
+
+### 3️⃣ Rendre le script exécutable / Make the script executable
 ```bash
 chmod +x install-glpi-https.sh
 ```
-4. **Lancer le script / Run the script :**
- ```bash
-sudo bash ./install-glpi-https.sh
+
+### 4️⃣ Lancer l'installation / Run the installation
+```bash
+./install-glpi-https.sh
 ```
+ou avec sudo / or with sudo :
+```bash
+sudo ./install-glpi-https.sh
+```
+
+---
+
+## 📋 Étapes d'installation / Installation Steps
+
+Le script vous guidera interactivement à travers les étapes suivantes :  
+The script will guide you interactively through the following steps:
+
+1. 🌍 **Choix de la langue** / **Language selection** (Français/English)
+2. ✅ **Confirmation** de l'installation / Installation **confirmation**
+3. 📦 **Installation des dépendances** / **Dependencies installation** (Apache, MariaDB, PHP 8.2)
+4. 🗄️ **Configuration de la base de données** / **Database configuration** :
+   - Nom de la base / Database name
+   - Utilisateur MySQL / MySQL user
+   - Mot de passe (auto ou manuel) / Password (auto or manual)
+5. 🔒 **Sécurisation de MariaDB** / **MariaDB hardening** :
+   - Définition du mot de passe root / Root password setup
+   - Nettoyage des utilisateurs par défaut / Default users cleanup
+6. 🌐 **Choix accès distant MariaDB** / **Remote MariaDB access choice**
+7. 📥 **Téléchargement de GLPI** / **GLPI download** (dernière version / latest version)
+8. 🔐 **Configuration SSL** / **SSL configuration** :
+   - Domaine ou IP / Domain or IP
+   - Durée du certificat / Certificate validity
+9. 🔥 **Configuration pare-feu (optionnel)** / **Firewall setup (optional)**
+10. 🧪 **Tests de vérification (optionnel)** / **Verification tests (optional)**
+11. 📝 **Génération du script de désinstallation** / **Uninstall script generation**
+
+---
+
+## 🌐 Accès à l'interface GLPI / Accessing the GLPI Interface
+
+Une fois le script terminé, accédez à votre interface GLPI via :  
+Once the script completes, access your GLPI interface via:
+
+```
+https://votre-domaine/
+https://your-domain/
+
 ou / or
- ```bash
-bash ./install-glpi-https.sh
+
+https://X.X.X.X/
 ```
 
-Pendant l’installation, le script vous demandera / During installation, the script will prompt you for :
+### 🔑 Identifiants par défaut / Default credentials
 
-- Le nom de domaine (ex : glpi.exemple.fr) ou l'adress IP / The domain name (e.g., glpi.example.com) or IP address
-- Le mot de passe que vous voulez définir pour la base MariaDB / The password you want to set for the MariaDB data base
-- Pour le **HTTPS**, il vous demandera la durée du certificat (auto-signé) / For the **HTTPS**, it will ask you the duration of the certificate (self-signed)
 > [!NOTE]
-> Identifiants par défaut pour glpi / Default credentials for glpi :  **`glpi`**
->
->  Mot de passe / Password : **`glpi`**
+> **Utilisateur / User :** `glpi`  
+> **Mot de passe / Password :** `glpi`
 
 > [!CAUTION]
->Pensez à les changer après la première connexion 🔒 / Remember to change these after your first login 🔒
+> **⚠️ SÉCURITÉ CRITIQUE / CRITICAL SECURITY**  
+> **Changez immédiatement ces identifiants après la première connexion !**  
+> **Change these credentials immediately after first login!**
+
 ---
-### 🌐 Accès à l’interface GLPI / Accessing the GLPI Interface
-Une fois le script terminé, accédez à votre interface GLPI via / Once the script completes, access your GLPI interface via :
 
-`https://votre-domaine/ ou https://X.X.X.X/`
+## 📊 Informations affichées en fin d'installation / Information Displayed at Installation End
 
-`https://your-domain/ or https://X.X.X.X/`
+Le script affichera / The script will display:
 
-
+- 🌐 URL d'accès / Access URL
+- 🖥️ Adresse IP du serveur / Server IP address
+- 🗄️ Nom de la base de données / Database name
+- 👤 Utilisateur de la base / Database user
+- 🔑 Mot de passe de la base / Database password
+- 🔐 Identifiants GLPI par défaut / Default GLPI credentials
 
 > [!TIP]
-> Si vous avez oublié le mot de passe défini pour l'utilisateur MariaDB ou l'adresse IP/domaine qui a été fini, le script l'affiche à la fin de l'installation / If you have forgotten the password set for the MariaDB user or the IP/domain address that has been finished, the script displays it at the end of the installation
+> **Ces informations sont également sauvegardées dans :**  
+> **This information is also saved in:**
+> - `/var/log/glpi-install.log` (mots de passe masqués / passwords hidden)
+> - `/root/.mysql_credentials` (credentials MySQL root)
 
-
+---
 
 ## 🛠️ Désinstallation / Uninstallation
-Pour supprimer GLPI et ses dépendances / To remove GLPI and its dependencies :
- ```bash
-sudo bash uninstall-glpi.sh
+
+Pour supprimer GLPI et tous ses composants :  
+To remove GLPI and all its components:
+
+```bash
+./uninstall-glpi.sh
 ```
-ou / or
- ```bash
-bash uninstall-glpi.sh
-```
+
+Le script supprimera automatiquement :  
+The script will automatically remove:
+
+- ✅ Tous les fichiers GLPI (`/var/www/html/glpi`, `/var/lib/glpi`)
+- ✅ Les configurations Apache (`glpi.conf`, `glpi-ssl.conf`)
+- ✅ Les certificats SSL (`/etc/ssl/glpi`)
+- ✅ La base de données et l'utilisateur MySQL
+- ✅ Les sites Apache activés
+
 ---
-> [!TIP]
->Le script est prévu pour une utilisation sur un serveur propre.
->Si vous avez déjà un site sur le port 443, pensez à créer un VirtualHost distinct ou à modifier le port HTTPS avant l’exécution.
->This script is designed for a clean server environment.
->If you already have a site running on port 443, consider creating a separate VirtualHost or modifying the HTTPS port before execution.
 
-> [!NOTE]
->🧰 Objectif / Purpose
->Ce script simplifie le déploiement complet de GLPI — de l’installation à la configuration HTTPS, le tout en une seule commande.
->This script simplifies the complete deployment of GLPI — from installation to HTTPS configuration, all in a single command.
+## 🔐 Fichiers sensibles / Sensitive Files
 
-## 📖 Avertissement légal / Legal disclaimer 
 > [!WARNING]
-> L'utilisateur reconnaît et accepte que l'auteur du script ne peut être tenu pour responsable des éventuelles failles de sécurité, vulnérabilités ou dommages résultant de l'utilisation ou de
-> l'installation du script. L'utilisation du script se fait sous la seule responsabilité de l'utilisateur, qui s'engage à en évaluer les risques et à prendre les mesures de sécurité appropriées.
+> **Ne partagez JAMAIS ces fichiers / NEVER share these files:**
+> - `/root/.mysql_credentials` (mot de passe root MySQL)
+> - `/var/log/glpi-install.log` (log d'installation)
+
+---
+
+## 🐛 Dépannage / Troubleshooting
+
+### ❌ Erreur "Unable to locate package php8.2-xxx"
+```bash
+apt update
+apt install software-properties-common -y
+```
+
+### ❌ Le site n'est pas accessible via HTTPS
+```bash
+# Vérifier Apache
+systemctl status apache2
+
+# Vérifier les certificats
+ls -l /etc/ssl/glpi/
+
+# Recharger Apache
+systemctl reload apache2
+```
+
+### ❌ Erreur de connexion à la base de données
+```bash
+# Vérifier MariaDB
+systemctl status mariadb
+
+# Tester la connexion
+mysql --defaults-file=/root/.mysql_credentials -e "SHOW DATABASES;"
+```
+
+### ❌ Le firewall bloque l'accès
+```bash
+# Vérifier UFW
+ufw status
+
+# Autoriser temporairement tout
+ufw disable
+
+# Réactiver avec règles
+ufw enable
+```
+
+---
+
+## 📖 Structure du projet / Project Structure
+
+```
+glpi-auto/
+├── install-glpi-https.sh    # Script d'installation principal / Main install script
+├── uninstall-glpi.sh        # Généré automatiquement / Auto-generated
+├── README.md                # Documentation
+├── SECURITY.md              # Politique de sécurité / Security policy
+└── LICENSE                  # Licence GPL-3.0
+```
+
+---
+
+## 🔒 Mesures de sécurité appliquées / Applied Security Measures
+
+| Mesure / Measure | Description |
+|------------------|-------------|
+| 🔐 **MariaDB hardening** | Root password, no anonymous users, no test DB |
+| 🛡️ **File permissions** | 750 for GLPI, 770 for data dirs, 600 for credentials |
+| 📁 **Directory protection** | `/files`, `/config`, `/install` protected by .htaccess |
+| 🚫 **Input validation** | Regex validation for DB names and users |
+| 🔥 **Firewall (optional)** | UFW with strict rules (22, 80, 443 only) |
+| 🔐 **SSL/TLS** | Self-signed certificate with configurable validity |
+| 📝 **Secure logging** | Passwords masked in logs |
+| 🔒 **Session security** | HTTP-only and secure cookies enabled |
+
+---
+
+## 📚 Documentation / Documentation
+
+### 🔗 Liens utiles / Useful Links
+- 📖 [Documentation officielle GLPI](https://glpi-install.readthedocs.io/en/latest/)
+- 🐙 [GLPI sur GitHub](https://github.com/glpi-project/glpi)
+- 🛡️ [Politique de sécurité](https://github.com/memton80/glpi-auto/blob/main/SECURITY.md)
+- 💬 [Signaler un bug / Report a bug](https://github.com/memton80/glpi-auto/issues)
+
+---
+
+## 🔜 Roadmap / To-Do List
+
+- [x] 🌐 Prise en charge bilingue FR/EN / Bilingual FR/EN support
+- [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
+- [x] 🔒 Sécurisation complète de MariaDB / Complete MariaDB hardening
+- [x] 🛡️ Protection des répertoires sensibles / Sensitive directories protection
+- [x] 🔥 Support du pare-feu UFW / UFW firewall support
+- [x] 📊 Barres de progression réalistes / Real-time progress bars
+- [x] ✅ Validation des entrées / Input validation
+- [x] 🔐 Gestion sécurisée des credentials / Secure credentials management
+- [ ] 🌍 Support multi-langue (ES, DE, IT) / Multi-language support
+- [ ] 🐧 Support de Debian 13 / Debian 13 support
+- [ ] 💻 Support Ubuntu 24.04 LTS / Ubuntu 24.04 LTS support
+- [ ] 🔄 Mise à jour automatique de GLPI / Automatic GLPI updates
+- [ ] 📧 Configuration SMTP / SMTP configuration
+- [ ] 🔌 Installation plugins GLPI / GLPI plugins installation
+- [ ] 🐳 Version Docker / Docker version
+- [ ] ☁️ Support Let's Encrypt / Let's Encrypt support
+
+---
+
+## 📖 Avertissement légal / Legal Disclaimer
+
+> [!WARNING]
+> **⚠️ UTILISATION À VOS RISQUES / USE AT YOUR OWN RISK**
+>
+> L'utilisateur reconnaît et accepte que l'auteur du script ne peut être tenu pour responsable des éventuelles failles de sécurité, vulnérabilités ou dommages résultant de l'utilisation ou de l'installation du script. L'utilisation du script se fait sous la seule responsabilité de l'utilisateur, qui s'engage à en évaluer les risques et à prendre les mesures de sécurité appropriées.
 >
 > The user acknowledges and agrees that the script author shall not be liable for any security vulnerabilities, breaches, or damages arising from the use or installation of the script. The use of the script is at the user's sole risk, and the user is responsible for assessing the risks and implementing appropriate security measures.
----
-## Sources :
--  Glpi github : https://github.com/glpi-project/glpi
--  Documentation officielle / official documentation : https://glpi-install.readthedocs.io/en/latest/
----
-# 🔜 GLPI-AUTO Roadmap / To‑Do List des futures versions
-- [x] 🌐 Prise en charge de la langue anglaise / English language support
-- [x] 🗑️ Script de désinstallation automatique / Automatic uninstall script
-- [x] Installation assistée de la base MariaDB / Assisted installation of the MariaDB database
-- [ ] 🌍 Support multi-langue / Multi-language support
-- [ ] 🐧 Support de Debian 13 / Support for Debian 13
-- [ ] 💻 Support multi-OS / Multi-OS support
+
+> [!IMPORTANT]
+> **🛡️ RECOMMANDATIONS DE SÉCURITÉ / SECURITY RECOMMENDATIONS**
+> - 🔄 Effectuez des sauvegardes régulières / Perform regular backups
+> - 🔐 Changez tous les mots de passe par défaut / Change all default passwords
+> - 🔒 Utilisez des mots de passe forts et uniques / Use strong, unique passwords
+> - 📡 Limitez l'accès réseau si possible / Restrict network access when possible
+> - 🔄 Maintenez GLPI et le système à jour / Keep GLPI and system updated
+> - 🚫 Ne partagez jamais vos credentials / Never share your credentials
+
 ---
 
-[![Security Policy](https://img.shields.io/badge/Security-Policy-blue?style=flat-square&logo=github)](https://github.com/memton80/glpi-auto/blob/main/SECURITY.md)
+## 📄 Licence / License
 
+Ce projet est sous licence **GPL-3.0** / This project is licensed under **GPL-3.0**
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
+---
+
+## 🤝 Contribution / Contributing
+
+Les contributions sont les bienvenues ! N'hésitez pas à :  
+Contributions are welcome! Feel free to:
+
+1. 🍴 Fork le projet / Fork the project
+2. 🔧 Créer une branche / Create a branch (`git checkout -b feature/AmazingFeature`)
+3. 💾 Commit vos changements / Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. 📤 Push vers la branche / Push to the branch (`git push origin feature/AmazingFeature`)
+5. 🔀 Ouvrir une Pull Request / Open a Pull Request
