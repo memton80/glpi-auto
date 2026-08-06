@@ -8,7 +8,7 @@
 #    - bouton INSTALLER en bas
 #    - ecrans d'installation avec Tux anime et barre de progression reelle
 #
-#  Auteur : Alexandre
+#  Auteur : memton80
 #==============================================================================
 
 set -o pipefail
