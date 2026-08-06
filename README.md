@@ -93,8 +93,12 @@ L'interface est écrite entièrement en Bash (aucun `whiptail`, aucun `dialog`).
 
 The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 
-- **Panneau Machine** en haut à droite : nom d'hôte, adresse IP, système, état du
-  pare-feu et disponibilité des ports 80 et 443, actualisables avec la touche `r`
+- **Panneau Machine** en haut à droite : nom d'hôte, adresse IP, système,
+  processeur, mémoire, espace disque, état du pare-feu et disponibilité des ports
+  80 et 443, actualisables avec la touche `r`
+- **Contrôle du matériel** au démarrage : un avertissement détaillé s'affiche si
+  le processeur, la mémoire ou l'espace disque sont sous-dimensionnés, et le
+  rappel est repris dans la fenêtre de confirmation avant l'installation
 - **Panneau Configuration** : tous les paramètres regroupés dans des sections
   dépliables (base de données, sécurité, web/HTTPS, options)
 - **Bouton INSTALLER** en bas, actif une fois la configuration validée
@@ -144,8 +148,17 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 - Connexion Internet active / Active internet connection
 
 **Ressources / Resources:**
-- **2 Go de RAM minimum** / **Minimum 2 GB RAM**
-- **500 Mo d'espace disque** / **500 MB disk space**
+- **2 Go de RAM** recommandés, 1 Go strict minimum / **2 GB RAM** recommended,
+  1 GB absolute minimum
+- **5 Go d'espace disque libre** sur `/var` recommandés, 2 Go strict minimum /
+  **5 GB free disk space** on `/var` recommended, 2 GB absolute minimum
+- **2 cœurs** recommandés / **2 CPU cores** recommended
+
+Le script mesure ces trois valeurs au démarrage et affiche un avertissement si
+elles sont insuffisantes. L'installation reste possible dans tous les cas.
+
+The script measures these three values at startup and warns if they are too low.
+Installation remains possible in every case.
 
 **Réseau / Network:**
 - Un **nom de domaine** ou **adresse IP** / A **domain name** or **IP address**

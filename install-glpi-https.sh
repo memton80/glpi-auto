@@ -200,11 +200,11 @@ compute_layout() {
     FORM_X=1
     FORM_W=$(( COLS - RIGHT_W - 1 ))
     RIGHT_X=$(( COLS - RIGHT_W + 1 ))
-    MACH_H=10
+    # 11 lignes : panneau machine detaille (9 informations)
+    # 8 lignes  : version compacte, pour garder tous les raccourcis visibles
+    MACH_H=11
     HELP_H=$(( BODY_H - MACH_H ))
-    # sur un ecran court on rogne le panneau machine pour garder tous les
-    # raccourcis visibles (8 lignes suffisent a afficher ses six informations)
-    if (( HELP_H < 9 && MACH_H > 8 )); then
+    if (( HELP_H < 9 )); then
         MACH_H=8
         HELP_H=$(( BODY_H - MACH_H ))
     fi
@@ -347,6 +347,20 @@ MI_HOST=""; MI_IP=""; MI_OS=""
 MI_FW=""; MI_FW_ST="warn"
 MI_P80=""; MI_P80_ST="warn"
 MI_P443=""; MI_P443_ST="warn"
+MI_CPU=0; MI_CPU_TXT=""; MI_CPU_ST="ok"
+MI_RAM=0; MI_RAM_TXT=""; MI_RAM_ST="ok"
+MI_DISK=0; MI_DISK_TXT=""; MI_DISK_ST="ok"
+
+# Seuils materiels (Mo pour la memoire et le disque).
+# En dessous du seuil "MIN" l'installation est fortement deconseillee,
+# entre "MIN" et "RECO" elle fonctionne mais sans confort.
+HW_CPU_RECO=2
+HW_RAM_MIN=1024
+HW_RAM_RECO=2048
+HW_DISK_MIN=2048
+HW_DISK_RECO=5120
+
+declare -a HW_ISSUES HW_SHORT
 
 get_ip() {
     local ip
@@ -360,6 +374,9 @@ get_os() {
     local os=""
     [[ -r /etc/os-release ]] && os=$(. /etc/os-release 2>/dev/null && printf '%s' "$PRETTY_NAME")
     [[ -z $os ]] && os=$(uname -sr)
+    # "Debian GNU/Linux 12 (bookworm)" -> "Debian 12", pour tenir dans le panneau
+    os=${os// GNU\/Linux/}
+    os=${os%% (*}
     printf '%s' "$os"
 }
 
@@ -403,10 +420,118 @@ port_state() {
     fi
 }
 
+# human_mb <taille en Mo> -> "1,9 Go" ou "512 Mo"
+human_mb() {
+    local m=$1 g d
+    if (( m >= 1024 )); then
+        g=$(( m / 1024 )); d=$(( (m % 1024) * 10 / 1024 ))
+        if (( d == 0 )); then printf '%d Go' "$g"; else printf '%d,%d Go' "$g" "$d"; fi
+    else
+        printf '%d Mo' "$m"
+    fi
+}
+
+get_cpu_count() {
+    local n
+    n=$(nproc 2>/dev/null)
+    [[ $n =~ ^[0-9]+$ ]] || n=$(grep -c '^processor' /proc/cpuinfo 2>/dev/null)
+    [[ $n =~ ^[0-9]+$ ]] || n=0
+    printf '%s' "$n"
+}
+
+get_ram_mb() {
+    local m
+    m=$(awk '/^MemTotal:/ {print int($2/1024)}' /proc/meminfo 2>/dev/null)
+    [[ $m =~ ^[0-9]+$ ]] || m=0
+    printf '%s' "$m"
+}
+
+# Espace libre sur le systeme de fichiers qui accueillera GLPI et la base
+get_disk_mb() {
+    local m
+    m=$(df -Pm /var 2>/dev/null | awk 'NR==2 {print $4}')
+    [[ $m =~ ^[0-9]+$ ]] || m=0
+    printf '%s' "$m"
+}
+
+check_hardware() {
+    HW_ISSUES=()
+    HW_SHORT=()
+
+    MI_CPU=$(get_cpu_count)
+    if (( MI_CPU <= 0 )); then
+        MI_CPU_TXT="inconnu"; MI_CPU_ST="warn"
+    else
+        if (( MI_CPU > 1 )); then MI_CPU_TXT="$MI_CPU coeurs"; else MI_CPU_TXT="$MI_CPU coeur"; fi
+        if (( MI_CPU < HW_CPU_RECO )); then
+            MI_CPU_ST="warn"
+            HW_ISSUES+=("Processeur   : $MI_CPU_TXT (${HW_CPU_RECO} coeurs recommandes)")
+            HW_SHORT+=("processeur")
+        else
+            MI_CPU_ST="ok"
+        fi
+    fi
+
+    MI_RAM=$(get_ram_mb)
+    MI_RAM_TXT=$(human_mb "$MI_RAM")
+    if (( MI_RAM <= 0 )); then
+        MI_RAM_TXT="inconnue"; MI_RAM_ST="warn"
+    elif (( MI_RAM < HW_RAM_MIN )); then
+        MI_RAM_ST="err"
+        HW_ISSUES+=("Memoire vive : $MI_RAM_TXT (insuffisante, $(human_mb $HW_RAM_RECO) recommandes)")
+        HW_SHORT+=("memoire")
+    elif (( MI_RAM < HW_RAM_RECO )); then
+        MI_RAM_ST="warn"
+        HW_ISSUES+=("Memoire vive : $MI_RAM_TXT ($(human_mb $HW_RAM_RECO) recommandes)")
+        HW_SHORT+=("memoire")
+    else
+        MI_RAM_ST="ok"
+    fi
+
+    MI_DISK=$(get_disk_mb)
+    local libre="libres"
+    (( MI_DISK < 2048 )) && libre="libre"
+    MI_DISK_TXT="$(human_mb "$MI_DISK") $libre"
+    if (( MI_DISK <= 0 )); then
+        MI_DISK_TXT="inconnu"; MI_DISK_ST="warn"
+    elif (( MI_DISK < HW_DISK_MIN )); then
+        MI_DISK_ST="err"
+        HW_ISSUES+=("Disque /var  : $MI_DISK_TXT (insuffisant, $(human_mb $HW_DISK_RECO) recommandes)")
+        HW_SHORT+=("disque")
+    elif (( MI_DISK < HW_DISK_RECO )); then
+        MI_DISK_ST="warn"
+        HW_ISSUES+=("Disque /var  : $MI_DISK_TXT ($(human_mb $HW_DISK_RECO) recommandes)")
+        HW_SHORT+=("disque")
+    else
+        MI_DISK_ST="ok"
+    fi
+}
+
+hw_is_critical() {
+    [[ $MI_RAM_ST == err || $MI_DISK_ST == err ]]
+}
+
+hw_warning_text() {
+    local head="Le materiel de cette machine est sous-dimensionne."
+    hw_is_critical && head="Le materiel de cette machine est nettement sous-dimensionne."
+    printf '%s\n\n' "$head"
+    printf '  %s\n' "${HW_ISSUES[@]}"
+    printf '\n'
+    if hw_is_critical; then
+        printf '%s\n' "L'installation peut echouer par manque de ressources,"
+        printf '%s\n' "ou laisser un GLPI inutilisable en production."
+    else
+        printf '%s\n' "L'installation reste possible, mais GLPI risque"
+        printf '%s\n' "d'etre lent sous charge."
+    fi
+    printf '\n%s\n' "Vous pouvez continuer malgre tout."
+}
+
 collect_machine_info() {
     MI_HOST=$(hostname 2>/dev/null || printf 'inconnu')
     MI_IP=$(get_ip)
     MI_OS=$(get_os)
+    check_hardware
     detect_firewall
     port_state 80;  MI_P80=$PORT_TXT;  MI_P80_ST=$PORT_ST
     port_state 443; MI_P443=$PORT_TXT; MI_P443_ST=$PORT_ST
@@ -597,16 +722,37 @@ render_form() {
 render_machine() {
     draw_box "$BODY_Y" "$RIGHT_X" "$MACH_H" "$RIGHT_W" "Machine" "$C_FRAME"
     local inner=$(( RIGHT_W - 4 ))
-    local labw=11
+    local labw=12
     local y=$(( BODY_Y + 1 ))
-    local rows=(
-        "Nom d'hote|$MI_HOST|"
-        "Adresse IP|$MI_IP|"
-        "Systeme|$MI_OS|"
-        "Pare-feu|$MI_FW|$MI_FW_ST"
-        "Port 80|$MI_P80|$MI_P80_ST"
-        "Port 443|$MI_P443|$MI_P443_ST"
-    )
+    local -a rows
+    if (( MACH_H >= 11 )); then
+        rows=(
+            "Nom d'hote|$MI_HOST|"
+            "Adresse IP|$MI_IP|"
+            "Systeme|$MI_OS|"
+            "Processeur|$MI_CPU_TXT|$MI_CPU_ST"
+            "Memoire|$MI_RAM_TXT|$MI_RAM_ST"
+            "Disque /var|$MI_DISK_TXT|$MI_DISK_ST"
+            "Pare-feu|$MI_FW|$MI_FW_ST"
+            "Port 80|$MI_P80|$MI_P80_ST"
+            "Port 443|$MI_P443|$MI_P443_ST"
+        )
+    else
+        # ecran court : on regroupe pour ne rien perdre d'essentiel
+        local hw_st="ok"
+        [[ $MI_CPU_ST == warn || $MI_RAM_ST == warn ]] && hw_st="warn"
+        [[ $MI_RAM_ST == err ]] && hw_st="err"
+        local ports_st="ok"
+        [[ $MI_P80_ST == err || $MI_P443_ST == err ]] && ports_st="err"
+        rows=(
+            "Nom d'hote|$MI_HOST|"
+            "Adresse IP|$MI_IP|"
+            "CPU / RAM|$MI_CPU / $MI_RAM_TXT|$hw_st"
+            "Disque /var|$MI_DISK_TXT|$MI_DISK_ST"
+            "Pare-feu|$MI_FW|$MI_FW_ST"
+            "Ports web|$MI_P80 / $MI_P443|$ports_st"
+        )
+    fi
     local r lab val st c
     for r in "${rows[@]}"; do
         IFS='|' read -r lab val st <<<"$r"
@@ -617,10 +763,6 @@ render_machine() {
         put "$y" $(( RIGHT_X + 2 )) "${C_MUTED}${L}${C_RESET}: ${c}${V}${C_RESET}"
         y=$(( y + 1 ))
     done
-    if (( MACH_H > 8 )); then
-        pad_str "[r] rafraichir" $(( inner ))
-        put $(( BODY_Y + MACH_H - 2 )) $(( RIGHT_X + 2 )) "${C_MUTED}${PAD}${C_RESET}"
-    fi
 }
 
 render_help() {
@@ -832,11 +974,13 @@ modal_confirm() {
     w=$(( w + 6 )); (( w < 44 )) && w=44
     (( w > COLS - 4 )) && w=$(( COLS - 4 ))
     local h=$(( ${#lines[@]} + 5 ))
+    (( h > ROWS - 2 )) && h=$(( ROWS - 2 ))
+    local maxl=$(( h - 5 ))
     modal_box "$h" "$w" "$title"
     while :; do
         BUF=""
         local i
-        for (( i = 0; i < ${#lines[@]}; i++ )); do
+        for (( i = 0; i < ${#lines[@]} && i < maxl; i++ )); do
             pad_str "${lines[i]}" $(( w - 4 ))
             put $(( MY + 1 + i )) $(( MX + 2 )) "${C_VALUE}${PAD}${C_RESET}"
         done
@@ -1817,6 +1961,13 @@ main_loop() {
 ATTENTION : $GLPI_DIR existe deja
 et sera entierement supprime puis recree.
 "
+                        if (( ${#HW_SHORT[@]} > 0 )); then
+                            local causes="${HW_SHORT[*]}"
+                            extra+="
+ATTENTION : materiel sous-dimensionne
+(${causes// /, })
+"
+                        fi
                         if modal_confirm "Confirmation" \
 "L'installation de GLPI va demarrer.
 
@@ -1892,6 +2043,12 @@ main() {
         cleanup
         printf 'Agrandissez la fenetre du terminal (minimum 74x20) puis relancez le script.\n' >&2
         exit 1
+    fi
+
+    if (( ${#HW_ISSUES[@]} > 0 )); then
+        local hwcol=$C_WARN
+        hw_is_critical && hwcol=$C_ERR
+        modal_message "Materiel sous-dimensionne" "$(hw_warning_text)" "$hwcol"
     fi
 
     if ! check_internet; then
