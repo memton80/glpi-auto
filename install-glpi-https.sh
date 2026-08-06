@@ -216,7 +216,478 @@ compute_layout() {
 term_too_small() { (( COLS < 74 || ROWS < 20 )); }
 
 #==============================================================================
-#  2. PRIMITIVES DE DESSIN
+#  2. TRADUCTIONS
+#
+#  Toutes les chaines affichees sont chargees dans des variables L_* par
+#  load_strings(), appelee une fois la langue choisie. Les deux blocs se
+#  suivent dans le meme ordre pour rester faciles a comparer.
+#==============================================================================
+
+UILANG="fr"
+declare -a L_KEYS
+
+load_strings() {
+    if [[ $UILANG == en ]]; then
+        # ---------------------------------------------------------- ENGLISH
+        L_APP_TITLE="GLPI AUTO - DEBIAN 12 INSTALLER"
+        L_PANEL_CONFIG="Configuration"
+        L_PANEL_MACHINE="Machine"
+        L_PANEL_KEYS="Shortcuts"
+        L_BTN_INSTALL="[ INSTALL ]"
+        L_KEYS=(
+            "Up/Down|move"
+            "Enter|edit / confirm"
+            "Space|yes / no"
+            "Left/Right|fold / unfold"
+            "r|refresh machine"
+            "t|light/dark theme"
+            "q|quit"
+        )
+        L_NOTE_TARGET="Installed into"
+        L_NOTE_LOG="Log file"
+
+        # panneau machine
+        L_M_HOST="Hostname"
+        L_M_IP="IP address"
+        L_M_OS="System"
+        L_M_CPU="CPU"
+        L_M_RAM="Memory"
+        L_M_DISK="Disk /var"
+        L_M_FW="Firewall"
+        L_M_P80="Port 80"
+        L_M_P443="Port 443"
+        L_M_CPURAM="CPU / RAM"
+        L_M_PORTS="Web ports"
+        L_V_FREE="free"
+        L_V_BUSY="in use"
+        L_V_UNKNOWN="unknown"
+        L_V_UNKNOWN_F="unknown"
+        L_V_ACTIVE="active"
+        L_V_INACTIVE="inactive"
+        L_V_NONE="none"
+        L_V_CORE="core"
+        L_V_CORES="cores"
+        L_V_SPACE_FREE="free"
+        L_V_SPACE_FREE_P="free"
+        L_U_GB="GB"; L_U_MB="MB"; L_U_KB="KB"; L_U_B="B"
+        L_DECIMAL="."
+
+        # formulaire
+        L_SEC_DB="Database"
+        L_SEC_SECURITY="Security"
+        L_SEC_WEB="Web and HTTPS"
+        L_SEC_OPTIONS="Options"
+        L_F_DBNAME="Database name"
+        L_H_DBNAME="Letters, digits and underscore only."
+        L_F_DBUSER="MySQL user"
+        L_H_DBUSER="Letters, digits and underscore only."
+        L_F_DBAUTO="Generate the password"
+        L_H_DBAUTO="Generates a strong 16 character password."
+        L_F_DBPASS="MySQL password"
+        L_H_DBPASS="8 characters minimum, no space and no quote."
+        L_F_ROOTPASS="MariaDB root password"
+        L_H_ROOTPASS="Required. Saved into %s."
+        L_F_REMOTE="Remote MariaDB access"
+        L_H_REMOTE="Makes MariaDB listen on 0.0.0.0: only with a firewall."
+        L_F_FIREWALL="Configure the UFW firewall"
+        L_H_FIREWALL="Allows ports 22 (SSH), 80 and 443 only."
+        L_F_DOMAIN="Server domain or IP"
+        L_H_DOMAIN="Used for the certificate and the final URL."
+        L_F_SSL="Self-signed certificate"
+        L_H_SSL="Creates a self-signed HTTPS certificate for the domain."
+        L_F_SSLDAYS="Certificate validity (days)"
+        L_H_SSLDAYS="Number of days the certificate stays valid (1 to 3650)."
+        L_F_UNINSTALL="Uninstall script"
+        L_H_UNINSTALL="Generates ./uninstall-glpi.sh at the end."
+        L_F_TESTS="Verification tests"
+        L_H_TESTS="Checks Apache, MariaDB and the GLPI directory."
+
+        # barre de statut
+        L_ST_BUTTON="Press Enter to start the GLPI installation."
+        L_ST_SECTION="Enter or Left/Right to fold or unfold the section."
+        L_ST_THEME_LIGHT="Light theme enabled (press t for the dark theme)."
+        L_ST_THEME_DARK="Dark theme enabled (press t for the light theme)."
+        L_ST_REFRESHING="Refreshing machine information..."
+        L_ST_REFRESHED="Machine information refreshed."
+
+        # modales
+        L_ANY_KEY="Press any key to continue"
+        L_ANY_KEY_QUIT="Press any key to quit"
+        L_YES="[ Yes ]"
+        L_NO="[ No ]"
+        L_YESV="yes"
+        L_NOV="no"
+        L_UNSET="not set"
+        L_EMPTY="empty"
+        L_EDIT_HELP="Enter: confirm     Esc: cancel"
+        L_PASS_CONFIRM="Confirm the password:"
+        L_PASS_RETYPE="Type the same value again."
+        L_PASS_MISMATCH_T="Passwords do not match"
+        L_PASS_MISMATCH=$'The two entries do not match.\nPlease try again.'
+        L_INVALID_T="Invalid value"
+
+        # validation
+        L_ERR_IDENT="Only letters, digits and underscore are allowed."
+        L_ERR_PASS_SHORT="The password must be at least 8 characters long."
+        L_ERR_PASS_CHARS="Forbidden characters: space, quote, double quote, backslash, backtick."
+        L_ERR_HOST="Invalid domain name or IP address."
+        L_ERR_DAYS_NUM="Enter a number of days."
+        L_ERR_DAYS_RANGE="The validity must be between 1 and 3650 days."
+        L_FORM_INCOMPLETE_T="Incomplete configuration"
+
+        # confirmation et sortie
+        L_CONFIRM_T="Confirmation"
+        L_CONFIRM_BODY=$'The GLPI installation is about to start.\n\nApache, MariaDB and PHP will be installed\nand the server configuration will be changed.'
+        L_CONFIRM_EXISTS=$'WARNING: %s already exists\nand will be entirely removed and recreated.'
+        L_CONFIRM_HW="WARNING: undersized hardware"
+        L_CONFIRM_ASK="Start the installation?"
+        L_QUIT_T="Quit"
+        L_QUIT_ASK="Quit without installing GLPI?"
+        L_CANCELLED="Installation cancelled by the user."
+        L_NET_T="No Internet connection"
+        L_NET_BODY=$'Internet cannot be reached.\n\nA connection is required to download the\npackages and the GLPI archive.'
+        L_TOO_SMALL="Terminal too small: %sx%s. Minimum required 74x20."
+        L_TOO_SMALL_CLI="Enlarge the terminal window (minimum 74x20) then run the script again."
+
+        # materiel
+        L_HW_T="Undersized hardware"
+        L_HW_HEAD="This machine is undersized."
+        L_HW_HEAD_CRIT="This machine is severely undersized."
+        L_HW_CONSEQ=$'The installation is still possible, but GLPI\nis likely to be slow under load.'
+        L_HW_CONSEQ_CRIT=$'The installation may fail for lack of resources,\nor leave a GLPI unusable in production.'
+        L_HW_CONTINUE="You can proceed anyway."
+        L_HW_L_CPU="CPU"
+        L_HW_L_RAM="Memory"
+        L_HW_L_DISK="Disk /var"
+        L_HW_RECO_CPU="%s cores recommended"
+        L_HW_RECO="%s recommended"
+        L_HW_INSUF="insufficient"
+        L_HW_INSUF_F="insufficient"
+        L_HW_SHORT_CPU="CPU"
+        L_HW_SHORT_RAM="memory"
+        L_HW_SHORT_DISK="disk"
+
+        # ecrans d'installation
+        L_ANIM_DL_TITLE="DOWNLOADING COMPONENTS"
+        L_ANIM_INST_TITLE="INSTALLATION"
+        L_ANIM_DL_PHASE="DOWNLOAD IN PROGRESS"
+        L_ANIM_INST_PHASE="INSTALLATION IN PROGRESS"
+        L_ANIM_LOG="Full log: %s"
+        L_DL_RECEIVED="%s received"
+
+        # etapes
+        L_S_APT_UPDATE="Updating package lists"
+        L_S_APT_WEB="Installing Apache and MariaDB"
+        L_S_APT_PHP="Installing PHP and its extensions"
+        L_S_APT_TOOLS="Installing utilities"
+        L_S_FETCH="Looking for the latest GLPI release"
+        L_S_PREPARE_DL="Preparing the download"
+        L_S_DOWNLOAD="Downloading the GLPI archive"
+        L_S_EXTRACT="Extracting the archive"
+        L_S_MOVE="Setting up the files"
+        L_S_CREATE_DB="Creating the database"
+        L_S_SECURE_DB="Hardening MariaDB"
+        L_S_BIND_DB="Configuring the MariaDB listener"
+        L_S_PERMS="Permissions and protected directories"
+        L_S_APACHE="Configuring Apache and the certificate"
+        L_S_PHP="Configuring PHP"
+        L_S_HTACCESS="Protecting sensitive directories"
+        L_S_FIREWALL="Configuring the UFW firewall"
+        L_S_FIREWALL_SKIP="Firewall skipped"
+        L_S_UNINSTALL="Generating the uninstall script"
+        L_S_CLEANUP="Cleaning up"
+        L_S_DONE="Done"
+
+        # erreurs d'etape
+        L_E_APT_UPDATE="Updating the package lists failed."
+        L_E_APT_WEB="Installing the web server or MariaDB failed."
+        L_E_APT_PHP="Installing PHP failed."
+        L_E_APT_TOOLS="Installing the utilities failed."
+        L_E_FETCH="The GLPI version to download could not be determined."
+        L_E_DOWNLOAD="Downloading GLPI failed."
+        L_E_EXTRACT="Extracting the GLPI archive failed."
+        L_E_MOVE="The GLPI directory could not be created."
+        L_E_CREATE_DB="Creating the database failed."
+        L_E_SECURE_DB="Hardening MariaDB failed."
+        L_E_BIND_DB="Restarting MariaDB failed."
+        L_E_PERMS="Applying the permissions failed."
+        L_E_APACHE="Configuring Apache failed."
+        L_E_PHP="Configuring PHP failed."
+        L_E_HTACCESS="Writing the .htaccess files failed."
+        L_E_FIREWALL="Configuring the firewall failed."
+        L_E_UNINSTALL="Generating the uninstall script failed."
+
+        # echec
+        L_FATAL_T="Installation failed"
+        L_FATAL_LOGTAIL="Last lines of the log:"
+        L_FATAL_NONE="none"
+        L_FATAL_LOG="Full log: %s"
+        L_FATAL_CLI="FAILED: %s"
+        L_FATAL_CLI2="See %s"
+
+        # tests et recapitulatif
+        L_TEST_HEAD="Checks:"
+        L_TEST_APACHE_UP="Apache: running"
+        L_TEST_APACHE_DOWN="Apache: stopped"
+        L_TEST_MDB_UP="MariaDB: running"
+        L_TEST_MDB_DOWN="MariaDB: stopped"
+        L_TEST_DIR_OK="GLPI directory: present"
+        L_TEST_DIR_KO="GLPI directory: missing"
+        L_FINAL_T="GLPI - INSTALLATION COMPLETE"
+        L_FINAL_DONE="Installation complete."
+        L_FINAL_URL="GLPI address"
+        L_FINAL_IP="IP address"
+        L_FINAL_DB="Database"
+        L_FINAL_USER="User"
+        L_FINAL_PASS="Password"
+        L_FINAL_ROOT="MariaDB root"
+        L_FINAL_ROOT_V="saved into %s"
+        L_FINAL_DEFAULT="Default GLPI credentials: glpi / glpi"
+        L_FINAL_WARN=$'WARNING: change them at the first login\nand delete the %s directory\nonce the web wizard is finished.'
+        L_FINAL_UNINSTALL="Uninstall: ./uninstall-glpi.sh"
+        L_FINAL_LOG="Log file"
+
+        # script de desinstallation
+        L_UN_HEAD="GLPI uninstaller generated by install-glpi-https.sh"
+        L_UN_FILES="Removing the GLPI files..."
+        L_UN_APACHE="Removing the Apache configuration..."
+        L_UN_DB="Removing the database..."
+        L_UN_NOCRED="MySQL credentials file not found."
+        L_UN_MANUAL="Manually drop the database '%s' and the user '%s'."
+        L_UN_DONE="GLPI and its components have been removed."
+    else
+        # --------------------------------------------------------- FRANCAIS
+        L_APP_TITLE="GLPI AUTO - INSTALLATEUR DEBIAN 12"
+        L_PANEL_CONFIG="Configuration"
+        L_PANEL_MACHINE="Machine"
+        L_PANEL_KEYS="Raccourcis"
+        L_BTN_INSTALL="[ INSTALLER ]"
+        L_KEYS=(
+            "Haut/Bas|deplacer"
+            "Entree|modifier / valider"
+            "Espace|oui / non"
+            "Gauche/Droite|plier / deplier"
+            "r|infos machine"
+            "t|theme clair/sombre"
+            "q|quitter"
+        )
+        L_NOTE_TARGET="Installation dans"
+        L_NOTE_LOG="Journal"
+
+        # panneau machine
+        L_M_HOST="Nom d'hote"
+        L_M_IP="Adresse IP"
+        L_M_OS="Systeme"
+        L_M_CPU="Processeur"
+        L_M_RAM="Memoire"
+        L_M_DISK="Disque /var"
+        L_M_FW="Pare-feu"
+        L_M_P80="Port 80"
+        L_M_P443="Port 443"
+        L_M_CPURAM="CPU / RAM"
+        L_M_PORTS="Ports web"
+        L_V_FREE="libre"
+        L_V_BUSY="occupe"
+        L_V_UNKNOWN="inconnu"
+        L_V_UNKNOWN_F="inconnue"
+        L_V_ACTIVE="actif"
+        L_V_INACTIVE="inactif"
+        L_V_NONE="aucun"
+        L_V_CORE="coeur"
+        L_V_CORES="coeurs"
+        L_V_SPACE_FREE="libre"
+        L_V_SPACE_FREE_P="libres"
+        L_U_GB="Go"; L_U_MB="Mo"; L_U_KB="Ko"; L_U_B="o"
+        L_DECIMAL=","
+
+        # formulaire
+        L_SEC_DB="Base de donnees"
+        L_SEC_SECURITY="Securite"
+        L_SEC_WEB="Web et HTTPS"
+        L_SEC_OPTIONS="Options"
+        L_F_DBNAME="Nom de la base"
+        L_H_DBNAME="Lettres, chiffres et tiret bas uniquement."
+        L_F_DBUSER="Utilisateur MySQL"
+        L_H_DBUSER="Lettres, chiffres et tiret bas uniquement."
+        L_F_DBAUTO="Generer le mot de passe"
+        L_H_DBAUTO="Genere un mot de passe fort de 16 caracteres."
+        L_F_DBPASS="Mot de passe MySQL"
+        L_H_DBPASS="8 caracteres minimum, sans espace ni quote."
+        L_F_ROOTPASS="Mot de passe root MariaDB"
+        L_H_ROOTPASS="Obligatoire. Sauvegarde dans %s."
+        L_F_REMOTE="Acces MariaDB distant"
+        L_H_REMOTE="Fait ecouter MariaDB sur 0.0.0.0 : a n'activer qu'avec un pare-feu."
+        L_F_FIREWALL="Configurer le pare-feu UFW"
+        L_H_FIREWALL="N'autorise que les ports 22 (SSH), 80 et 443."
+        L_F_DOMAIN="Domaine ou IP du serveur"
+        L_H_DOMAIN="Utilise pour le certificat et l'URL finale."
+        L_F_SSL="Certificat auto-signe"
+        L_H_SSL="Cree un certificat HTTPS auto-signe pour le domaine."
+        L_F_SSLDAYS="Duree du certificat (j)"
+        L_H_SSLDAYS="Nombre de jours de validite (1 a 3650)."
+        L_F_UNINSTALL="Script de desinstallation"
+        L_H_UNINSTALL="Genere ./uninstall-glpi.sh a la fin."
+        L_F_TESTS="Tests de verification"
+        L_H_TESTS="Verifie Apache, MariaDB et le repertoire GLPI."
+
+        # barre de statut
+        L_ST_BUTTON="Entree pour lancer l'installation de GLPI."
+        L_ST_SECTION="Entree ou Gauche/Droite pour plier ou deplier la section."
+        L_ST_THEME_LIGHT="Theme clair active (touche t pour revenir au theme sombre)."
+        L_ST_THEME_DARK="Theme sombre active (touche t pour passer au theme clair)."
+        L_ST_REFRESHING="Actualisation des informations machine..."
+        L_ST_REFRESHED="Informations machine actualisees."
+
+        # modales
+        L_ANY_KEY="Appuyez sur une touche pour continuer"
+        L_ANY_KEY_QUIT="Appuyez sur une touche pour quitter"
+        L_YES="[ Oui ]"
+        L_NO="[ Non ]"
+        L_YESV="oui"
+        L_NOV="non"
+        L_UNSET="non defini"
+        L_EMPTY="vide"
+        L_EDIT_HELP="Entree : valider     Echap : annuler"
+        L_PASS_CONFIRM="Confirmez le mot de passe :"
+        L_PASS_RETYPE="Ressaisissez la meme valeur."
+        L_PASS_MISMATCH_T="Mots de passe differents"
+        L_PASS_MISMATCH=$'Les deux saisies ne correspondent pas.\nVeuillez recommencer.'
+        L_INVALID_T="Valeur invalide"
+
+        # validation
+        L_ERR_IDENT="Seuls les lettres, chiffres et le tiret bas sont autorises."
+        L_ERR_PASS_SHORT="Le mot de passe doit faire au moins 8 caracteres."
+        L_ERR_PASS_CHARS="Caracteres interdits : espace, quote, double quote, antislash, accent grave."
+        L_ERR_HOST="Domaine ou adresse IP invalide."
+        L_ERR_DAYS_NUM="Saisissez un nombre de jours."
+        L_ERR_DAYS_RANGE="La duree doit etre comprise entre 1 et 3650 jours."
+        L_FORM_INCOMPLETE_T="Configuration incomplete"
+
+        # confirmation et sortie
+        L_CONFIRM_T="Confirmation"
+        L_CONFIRM_BODY=$'L\'installation de GLPI va demarrer.\n\nLes paquets Apache, MariaDB et PHP seront\ninstalles et la configuration du serveur\nsera modifiee.'
+        L_CONFIRM_EXISTS=$'ATTENTION : %s existe deja\net sera entierement supprime puis recree.'
+        L_CONFIRM_HW="ATTENTION : materiel sous-dimensionne"
+        L_CONFIRM_ASK="Lancer l'installation ?"
+        L_QUIT_T="Quitter"
+        L_QUIT_ASK="Quitter sans installer GLPI ?"
+        L_CANCELLED="Installation annulee par l'utilisateur."
+        L_NET_T="Pas de connexion Internet"
+        L_NET_BODY=$'Impossible de joindre Internet.\n\nUne connexion est necessaire pour telecharger\nles paquets et l\'archive GLPI.'
+        L_TOO_SMALL="Terminal trop petit : %sx%s. Minimum requis 74x20."
+        L_TOO_SMALL_CLI="Agrandissez la fenetre du terminal (minimum 74x20) puis relancez le script."
+
+        # materiel
+        L_HW_T="Materiel sous-dimensionne"
+        L_HW_HEAD="Le materiel de cette machine est sous-dimensionne."
+        L_HW_HEAD_CRIT="Le materiel de cette machine est nettement sous-dimensionne."
+        L_HW_CONSEQ=$'L\'installation reste possible, mais GLPI risque\nd\'etre lent sous charge.'
+        L_HW_CONSEQ_CRIT=$'L\'installation peut echouer par manque de ressources,\nou laisser un GLPI inutilisable en production.'
+        L_HW_CONTINUE="Vous pouvez continuer malgre tout."
+        L_HW_L_CPU="Processeur"
+        L_HW_L_RAM="Memoire vive"
+        L_HW_L_DISK="Disque /var"
+        L_HW_RECO_CPU="%s coeurs recommandes"
+        L_HW_RECO="%s recommandes"
+        L_HW_INSUF="insuffisant"
+        L_HW_INSUF_F="insuffisante"
+        L_HW_SHORT_CPU="processeur"
+        L_HW_SHORT_RAM="memoire"
+        L_HW_SHORT_DISK="disque"
+
+        # ecrans d'installation
+        L_ANIM_DL_TITLE="TELECHARGEMENT DES COMPOSANTS"
+        L_ANIM_INST_TITLE="INSTALLATION"
+        L_ANIM_DL_PHASE="TELECHARGEMENT EN COURS"
+        L_ANIM_INST_PHASE="INSTALLATION EN COURS"
+        L_ANIM_LOG="Journal complet : %s"
+        L_DL_RECEIVED="%s recus"
+
+        # etapes
+        L_S_APT_UPDATE="Mise a jour des listes de paquets"
+        L_S_APT_WEB="Installation d'Apache et MariaDB"
+        L_S_APT_PHP="Installation de PHP et de ses extensions"
+        L_S_APT_TOOLS="Installation des utilitaires"
+        L_S_FETCH="Recherche de la derniere version de GLPI"
+        L_S_PREPARE_DL="Preparation du telechargement"
+        L_S_DOWNLOAD="Telechargement de l'archive GLPI"
+        L_S_EXTRACT="Extraction de l'archive"
+        L_S_MOVE="Mise en place des fichiers"
+        L_S_CREATE_DB="Creation de la base de donnees"
+        L_S_SECURE_DB="Securisation de MariaDB"
+        L_S_BIND_DB="Configuration de l'ecoute MariaDB"
+        L_S_PERMS="Permissions et repertoires proteges"
+        L_S_APACHE="Configuration d'Apache et du certificat"
+        L_S_PHP="Configuration de PHP"
+        L_S_HTACCESS="Protection des repertoires sensibles"
+        L_S_FIREWALL="Configuration du pare-feu UFW"
+        L_S_FIREWALL_SKIP="Pare-feu ignore"
+        L_S_UNINSTALL="Generation du script de desinstallation"
+        L_S_CLEANUP="Nettoyage"
+        L_S_DONE="Termine"
+
+        # erreurs d'etape
+        L_E_APT_UPDATE="La mise a jour des listes de paquets a echoue."
+        L_E_APT_WEB="L'installation du serveur web ou de MariaDB a echoue."
+        L_E_APT_PHP="L'installation de PHP a echoue."
+        L_E_APT_TOOLS="L'installation des utilitaires a echoue."
+        L_E_FETCH="Impossible de determiner la version de GLPI a telecharger."
+        L_E_DOWNLOAD="Le telechargement de GLPI a echoue."
+        L_E_EXTRACT="L'extraction de l'archive GLPI a echoue."
+        L_E_MOVE="Le repertoire GLPI n'a pas pu etre cree."
+        L_E_CREATE_DB="La creation de la base de donnees a echoue."
+        L_E_SECURE_DB="La securisation de MariaDB a echoue."
+        L_E_BIND_DB="Le redemarrage de MariaDB a echoue."
+        L_E_PERMS="L'application des permissions a echoue."
+        L_E_APACHE="La configuration d'Apache a echoue."
+        L_E_PHP="La configuration de PHP a echoue."
+        L_E_HTACCESS="L'ecriture des fichiers .htaccess a echoue."
+        L_E_FIREWALL="La configuration du pare-feu a echoue."
+        L_E_UNINSTALL="La generation du script de desinstallation a echoue."
+
+        # echec
+        L_FATAL_T="Echec de l'installation"
+        L_FATAL_LOGTAIL="Dernieres lignes du journal :"
+        L_FATAL_NONE="aucune"
+        L_FATAL_LOG="Journal complet : %s"
+        L_FATAL_CLI="ECHEC : %s"
+        L_FATAL_CLI2="Consultez %s"
+
+        # tests et recapitulatif
+        L_TEST_HEAD="Verifications :"
+        L_TEST_APACHE_UP="Apache : actif"
+        L_TEST_APACHE_DOWN="Apache : arrete"
+        L_TEST_MDB_UP="MariaDB : actif"
+        L_TEST_MDB_DOWN="MariaDB : arrete"
+        L_TEST_DIR_OK="Repertoire GLPI : present"
+        L_TEST_DIR_KO="Repertoire GLPI : absent"
+        L_FINAL_T="GLPI - INSTALLATION TERMINEE"
+        L_FINAL_DONE="Installation terminee."
+        L_FINAL_URL="Acces GLPI"
+        L_FINAL_IP="Adresse IP"
+        L_FINAL_DB="Base de donnees"
+        L_FINAL_USER="Utilisateur"
+        L_FINAL_PASS="Mot de passe"
+        L_FINAL_ROOT="Root MariaDB"
+        L_FINAL_ROOT_V="enregistre dans %s"
+        L_FINAL_DEFAULT="Identifiants GLPI par defaut : glpi / glpi"
+        L_FINAL_WARN=$'ATTENTION : changez-les des la premiere connexion\net supprimez le repertoire %s\nune fois l\'assistant web termine.'
+        L_FINAL_UNINSTALL="Desinstallation : ./uninstall-glpi.sh"
+        L_FINAL_LOG="Journal"
+
+        # script de desinstallation
+        L_UN_HEAD="Desinstallation de GLPI generee par install-glpi-https.sh"
+        L_UN_FILES="Suppression des fichiers GLPI..."
+        L_UN_APACHE="Suppression de la configuration Apache..."
+        L_UN_DB="Suppression de la base de donnees..."
+        L_UN_NOCRED="Fichier de credentials MySQL introuvable."
+        L_UN_MANUAL="Supprimez manuellement la base '%s' et l'utilisateur '%s'."
+        L_UN_DONE="GLPI et ses composants ont ete supprimes."
+    fi
+}
+
+#==============================================================================
+#  3. PRIMITIVES DE DESSIN
 #==============================================================================
 
 BUF=""
@@ -282,7 +753,7 @@ draw_bar() {
 }
 
 #==============================================================================
-#  3. TUX (ASCII, 4 images d'animation)
+#  4. TUX (ASCII, 4 images d'animation)
 #==============================================================================
 
 TUX_H=7
@@ -340,7 +811,7 @@ tux_line() {
 }
 
 #==============================================================================
-#  4. INFORMATIONS MACHINE
+#  5. INFORMATIONS MACHINE
 #==============================================================================
 
 MI_HOST=""; MI_IP=""; MI_OS=""
@@ -383,17 +854,17 @@ get_os() {
 detect_firewall() {
     if command -v ufw >/dev/null 2>&1; then
         if ufw status 2>/dev/null | grep -qiE '^(Status|Statut)[[:space:]]*:[[:space:]]*(active|actif)'; then
-            MI_FW="actif (ufw)"; MI_FW_ST="ok"; return
+            MI_FW="$L_V_ACTIVE (ufw)"; MI_FW_ST="ok"; return
         fi
-        MI_FW="inactif (ufw)"; MI_FW_ST="warn"; return
+        MI_FW="$L_V_INACTIVE (ufw)"; MI_FW_ST="warn"; return
     fi
     if command -v nft >/dev/null 2>&1 && [[ -n $(nft list ruleset 2>/dev/null) ]]; then
-        MI_FW="actif (nftables)"; MI_FW_ST="ok"; return
+        MI_FW="$L_V_ACTIVE (nftables)"; MI_FW_ST="ok"; return
     fi
     if command -v iptables >/dev/null 2>&1 && (( $(iptables -S 2>/dev/null | wc -l) > 3 )); then
-        MI_FW="actif (iptables)"; MI_FW_ST="ok"; return
+        MI_FW="$L_V_ACTIVE (iptables)"; MI_FW_ST="ok"; return
     fi
-    MI_FW="aucun"; MI_FW_ST="warn"
+    MI_FW="$L_V_NONE"; MI_FW_ST="warn"
 }
 
 # port_state <port> -> PORT_TXT / PORT_ST
@@ -404,17 +875,17 @@ port_state() {
     elif command -v netstat >/dev/null 2>&1; then
         line=$(netstat -lntp 2>/dev/null | awk -v p=":$port" '{ if (substr($4, length($4)-length(p)+1) == p) print }')
     else
-        PORT_TXT="inconnu"; PORT_ST="warn"; return
+        PORT_TXT="$L_V_UNKNOWN"; PORT_ST="warn"; return
     fi
     if [[ -z $line ]]; then
-        PORT_TXT="libre"; PORT_ST="ok"
+        PORT_TXT="$L_V_FREE"; PORT_ST="ok"
     else
         proc=$(printf '%s' "$line" | grep -oE '"[^"]+"' | head -n1 | tr -d '"')
         [[ -z $proc ]] && proc=$(printf '%s' "$line" | awk '{print $NF}' | cut -d/ -f2)
         if [[ -n $proc ]]; then
-            PORT_TXT="occupe ($proc)"
+            PORT_TXT="$L_V_BUSY ($proc)"
         else
-            PORT_TXT="occupe"
+            PORT_TXT="$L_V_BUSY"
         fi
         PORT_ST="err"
     fi
@@ -425,9 +896,13 @@ human_mb() {
     local m=$1 g d
     if (( m >= 1024 )); then
         g=$(( m / 1024 )); d=$(( (m % 1024) * 10 / 1024 ))
-        if (( d == 0 )); then printf '%d Go' "$g"; else printf '%d,%d Go' "$g" "$d"; fi
+        if (( d == 0 )); then
+            printf '%d %s' "$g" "$L_U_GB"
+        else
+            printf '%d%s%d %s' "$g" "$L_DECIMAL" "$d" "$L_U_GB"
+        fi
     else
-        printf '%d Mo' "$m"
+        printf '%d %s' "$m" "$L_U_MB"
     fi
 }
 
@@ -454,19 +929,24 @@ get_disk_mb() {
     printf '%s' "$m"
 }
 
+# hw_issue <libelle> <valeur> <recommandation> -> ligne alignee du rapport
+hw_issue() {
+    printf '%-13s: %s (%s)' "$1" "$2" "$3"
+}
+
 check_hardware() {
     HW_ISSUES=()
     HW_SHORT=()
 
     MI_CPU=$(get_cpu_count)
     if (( MI_CPU <= 0 )); then
-        MI_CPU_TXT="inconnu"; MI_CPU_ST="warn"
+        MI_CPU_TXT="$L_V_UNKNOWN"; MI_CPU_ST="warn"
     else
-        if (( MI_CPU > 1 )); then MI_CPU_TXT="$MI_CPU coeurs"; else MI_CPU_TXT="$MI_CPU coeur"; fi
+        if (( MI_CPU > 1 )); then MI_CPU_TXT="$MI_CPU $L_V_CORES"; else MI_CPU_TXT="$MI_CPU $L_V_CORE"; fi
         if (( MI_CPU < HW_CPU_RECO )); then
             MI_CPU_ST="warn"
-            HW_ISSUES+=("Processeur   : $MI_CPU_TXT (${HW_CPU_RECO} coeurs recommandes)")
-            HW_SHORT+=("processeur")
+            HW_ISSUES+=("$(hw_issue "$L_HW_L_CPU" "$MI_CPU_TXT" "$(printf "$L_HW_RECO_CPU" "$HW_CPU_RECO")")")
+            HW_SHORT+=("$L_HW_SHORT_CPU")
         else
             MI_CPU_ST="ok"
         fi
@@ -475,33 +955,33 @@ check_hardware() {
     MI_RAM=$(get_ram_mb)
     MI_RAM_TXT=$(human_mb "$MI_RAM")
     if (( MI_RAM <= 0 )); then
-        MI_RAM_TXT="inconnue"; MI_RAM_ST="warn"
+        MI_RAM_TXT="$L_V_UNKNOWN_F"; MI_RAM_ST="warn"
     elif (( MI_RAM < HW_RAM_MIN )); then
         MI_RAM_ST="err"
-        HW_ISSUES+=("Memoire vive : $MI_RAM_TXT (insuffisante, $(human_mb $HW_RAM_RECO) recommandes)")
-        HW_SHORT+=("memoire")
+        HW_ISSUES+=("$(hw_issue "$L_HW_L_RAM" "$MI_RAM_TXT" "$L_HW_INSUF_F, $(printf "$L_HW_RECO" "$(human_mb $HW_RAM_RECO)")")")
+        HW_SHORT+=("$L_HW_SHORT_RAM")
     elif (( MI_RAM < HW_RAM_RECO )); then
         MI_RAM_ST="warn"
-        HW_ISSUES+=("Memoire vive : $MI_RAM_TXT ($(human_mb $HW_RAM_RECO) recommandes)")
-        HW_SHORT+=("memoire")
+        HW_ISSUES+=("$(hw_issue "$L_HW_L_RAM" "$MI_RAM_TXT" "$(printf "$L_HW_RECO" "$(human_mb $HW_RAM_RECO)")")")
+        HW_SHORT+=("$L_HW_SHORT_RAM")
     else
         MI_RAM_ST="ok"
     fi
 
     MI_DISK=$(get_disk_mb)
-    local libre="libres"
-    (( MI_DISK < 2048 )) && libre="libre"
+    local libre="$L_V_SPACE_FREE_P"
+    (( MI_DISK < 2048 )) && libre="$L_V_SPACE_FREE"
     MI_DISK_TXT="$(human_mb "$MI_DISK") $libre"
     if (( MI_DISK <= 0 )); then
-        MI_DISK_TXT="inconnu"; MI_DISK_ST="warn"
+        MI_DISK_TXT="$L_V_UNKNOWN"; MI_DISK_ST="warn"
     elif (( MI_DISK < HW_DISK_MIN )); then
         MI_DISK_ST="err"
-        HW_ISSUES+=("Disque /var  : $MI_DISK_TXT (insuffisant, $(human_mb $HW_DISK_RECO) recommandes)")
-        HW_SHORT+=("disque")
+        HW_ISSUES+=("$(hw_issue "$L_HW_L_DISK" "$MI_DISK_TXT" "$L_HW_INSUF, $(printf "$L_HW_RECO" "$(human_mb $HW_DISK_RECO)")")")
+        HW_SHORT+=("$L_HW_SHORT_DISK")
     elif (( MI_DISK < HW_DISK_RECO )); then
         MI_DISK_ST="warn"
-        HW_ISSUES+=("Disque /var  : $MI_DISK_TXT ($(human_mb $HW_DISK_RECO) recommandes)")
-        HW_SHORT+=("disque")
+        HW_ISSUES+=("$(hw_issue "$L_HW_L_DISK" "$MI_DISK_TXT" "$(printf "$L_HW_RECO" "$(human_mb $HW_DISK_RECO)")")")
+        HW_SHORT+=("$L_HW_SHORT_DISK")
     else
         MI_DISK_ST="ok"
     fi
@@ -512,23 +992,19 @@ hw_is_critical() {
 }
 
 hw_warning_text() {
-    local head="Le materiel de cette machine est sous-dimensionne."
-    hw_is_critical && head="Le materiel de cette machine est nettement sous-dimensionne."
+    local head=$L_HW_HEAD conseq=$L_HW_CONSEQ
+    if hw_is_critical; then
+        head=$L_HW_HEAD_CRIT
+        conseq=$L_HW_CONSEQ_CRIT
+    fi
     printf '%s\n\n' "$head"
     printf '  %s\n' "${HW_ISSUES[@]}"
-    printf '\n'
-    if hw_is_critical; then
-        printf '%s\n' "L'installation peut echouer par manque de ressources,"
-        printf '%s\n' "ou laisser un GLPI inutilisable en production."
-    else
-        printf '%s\n' "L'installation reste possible, mais GLPI risque"
-        printf '%s\n' "d'etre lent sous charge."
-    fi
-    printf '\n%s\n' "Vous pouvez continuer malgre tout."
+    printf '\n%s\n' "$conseq"
+    printf '\n%s\n' "$L_HW_CONTINUE"
 }
 
 collect_machine_info() {
-    MI_HOST=$(hostname 2>/dev/null || printf 'inconnu')
+    MI_HOST=$(hostname 2>/dev/null || printf '%s' "$L_V_UNKNOWN")
     MI_IP=$(get_ip)
     MI_OS=$(get_os)
     check_hardware
@@ -546,7 +1022,7 @@ state_color() {
 }
 
 #==============================================================================
-#  5. MODELE DU FORMULAIRE
+#  6. MODELE DU FORMULAIRE
 #==============================================================================
 
 declare -a SEC_NAME SEC_OPEN
@@ -564,25 +1040,25 @@ add_field() {
 }
 
 build_form() {
-    add_section "Base de donnees"
-    add_field db_name  "Nom de la base"          text "glpidb"   "Lettres, chiffres et tiret bas uniquement."
-    add_field db_user  "Utilisateur MySQL"       text "glpiuser" "Lettres, chiffres et tiret bas uniquement."
-    add_field db_auto  "Generer le mot de passe" bool "oui"      "Genere un mot de passe fort de 16 caracteres."
-    add_field db_pass  "Mot de passe MySQL"      pass ""         "8 caracteres minimum, sans espace ni quote." "db_auto=non"
+    add_section "$L_SEC_DB"
+    add_field db_name  "$L_F_DBNAME" text "glpidb"   "$L_H_DBNAME"
+    add_field db_user  "$L_F_DBUSER" text "glpiuser" "$L_H_DBUSER"
+    add_field db_auto  "$L_F_DBAUTO" bool "oui"      "$L_H_DBAUTO"
+    add_field db_pass  "$L_F_DBPASS" pass ""         "$L_H_DBPASS" "db_auto=non"
 
-    add_section "Securite"
-    add_field root_pass "Mot de passe root MariaDB" pass ""  "Obligatoire. Sauvegarde dans $MYSQL_CRED."
-    add_field db_remote "Acces MariaDB distant"     bool "non" "Fait ecouter MariaDB sur 0.0.0.0 : a n'activer qu'avec un pare-feu."
-    add_field firewall  "Configurer le pare-feu UFW" bool "oui" "N'autorise que les ports 22 (SSH), 80 et 443."
+    add_section "$L_SEC_SECURITY"
+    add_field root_pass "$L_F_ROOTPASS" pass ""        "$(printf "$L_H_ROOTPASS" "$MYSQL_CRED")"
+    add_field db_remote "$L_F_REMOTE"   bool "non" "$L_H_REMOTE"
+    add_field firewall  "$L_F_FIREWALL" bool "oui" "$L_H_FIREWALL"
 
-    add_section "Web et HTTPS"
-    add_field domain   "Domaine ou IP du serveur" text ""     "Utilise pour le certificat et l'URL finale."
-    add_field ssl      "Certificat auto-signe"    bool "oui"  "Cree un certificat HTTPS auto-signe pour le domaine."
-    add_field ssl_days "Duree du certificat (j)"  num  "365"  "Nombre de jours de validite (1 a 3650)." "ssl=oui"
+    add_section "$L_SEC_WEB"
+    add_field domain   "$L_F_DOMAIN"  text ""         "$L_H_DOMAIN"
+    add_field ssl      "$L_F_SSL"     bool "oui"      "$L_H_SSL"
+    add_field ssl_days "$L_F_SSLDAYS" num  "365"      "$L_H_SSLDAYS" "ssl=oui"
 
-    add_section "Options"
-    add_field uninstaller "Script de desinstallation" bool "oui" "Genere ./uninstall-glpi.sh a la fin."
-    add_field tests       "Tests de verification"     bool "oui" "Verifie Apache, MariaDB et le repertoire GLPI."
+    add_section "$L_SEC_OPTIONS"
+    add_field uninstaller "$L_F_UNINSTALL" bool "oui" "$L_H_UNINSTALL"
+    add_field tests       "$L_F_TESTS"     bool "oui" "$L_H_TESTS"
 }
 
 field_index() {
@@ -623,25 +1099,25 @@ field_display() {
     local i=$1 key=${FLD_KEY[$1]} type=${FLD_TYPE[$1]} v=${VAL[${FLD_KEY[$1]}]}
     case $type in
         bool)
-            if [[ $v == oui ]]; then DISPV="< oui >"; DISPC=$C_OK
-            else DISPV="< non >"; DISPC=$C_MUTED; fi
+            if [[ $v == oui ]]; then DISPV="< $L_YESV >"; DISPC=$C_OK
+            else DISPV="< $L_NOV >"; DISPC=$C_MUTED; fi
             ;;
         pass)
-            if [[ -z $v ]]; then DISPV="(non defini)"; DISPC=$C_WARN
+            if [[ -z $v ]]; then DISPV="($L_UNSET)"; DISPC=$C_WARN
             else
                 local n=${#v}; (( n > 16 )) && n=16
                 rep_char '*' "$n"; DISPV=$REPC; DISPC=$C_VALUE
             fi
             ;;
         *)
-            if [[ -z $v ]]; then DISPV="(vide)"; DISPC=$C_WARN
+            if [[ -z $v ]]; then DISPV="($L_EMPTY)"; DISPC=$C_WARN
             else DISPV=$v; DISPC=$C_VALUE; fi
             ;;
     esac
 }
 
 #==============================================================================
-#  6. RENDU DE L'ECRAN PRINCIPAL
+#  7. RENDU DE L'ECRAN PRINCIPAL
 #==============================================================================
 
 SEL=0          # index de ligne selectionnee (== nb de lignes -> bouton)
@@ -661,7 +1137,7 @@ adjust_scroll() {
 }
 
 render_header() {
-    local title="GLPI AUTO - INSTALLATEUR DEBIAN 12"
+    local title="$L_APP_TITLE"
     draw_box "$HEAD_Y" 1 "$HEAD_H" "$COLS" "" "$C_FRAME"
     local x=$(( (COLS - ${#title}) / 2 ))
     (( x < 2 )) && x=2
@@ -672,7 +1148,7 @@ render_header() {
 render_form() {
     local col=$C_FRAME
     sel_is_button || col=$C_FRAME_ON
-    draw_box "$BODY_Y" "$FORM_X" "$BODY_H" "$FORM_W" "Configuration" "$col"
+    draw_box "$BODY_Y" "$FORM_X" "$BODY_H" "$FORM_W" "$L_PANEL_CONFIG" "$col"
 
     local inner=$(( FORM_W - 4 ))
     local labw=$(( inner - 22 ))
@@ -720,22 +1196,22 @@ render_form() {
 }
 
 render_machine() {
-    draw_box "$BODY_Y" "$RIGHT_X" "$MACH_H" "$RIGHT_W" "Machine" "$C_FRAME"
+    draw_box "$BODY_Y" "$RIGHT_X" "$MACH_H" "$RIGHT_W" "$L_PANEL_MACHINE" "$C_FRAME"
     local inner=$(( RIGHT_W - 4 ))
     local labw=12
     local y=$(( BODY_Y + 1 ))
     local -a rows
     if (( MACH_H >= 11 )); then
         rows=(
-            "Nom d'hote|$MI_HOST|"
-            "Adresse IP|$MI_IP|"
-            "Systeme|$MI_OS|"
-            "Processeur|$MI_CPU_TXT|$MI_CPU_ST"
-            "Memoire|$MI_RAM_TXT|$MI_RAM_ST"
-            "Disque /var|$MI_DISK_TXT|$MI_DISK_ST"
-            "Pare-feu|$MI_FW|$MI_FW_ST"
-            "Port 80|$MI_P80|$MI_P80_ST"
-            "Port 443|$MI_P443|$MI_P443_ST"
+            "$L_M_HOST|$MI_HOST|"
+            "$L_M_IP|$MI_IP|"
+            "$L_M_OS|$MI_OS|"
+            "$L_M_CPU|$MI_CPU_TXT|$MI_CPU_ST"
+            "$L_M_RAM|$MI_RAM_TXT|$MI_RAM_ST"
+            "$L_M_DISK|$MI_DISK_TXT|$MI_DISK_ST"
+            "$L_M_FW|$MI_FW|$MI_FW_ST"
+            "$L_M_P80|$MI_P80|$MI_P80_ST"
+            "$L_M_P443|$MI_P443|$MI_P443_ST"
         )
     else
         # ecran court : on regroupe pour ne rien perdre d'essentiel
@@ -745,12 +1221,12 @@ render_machine() {
         local ports_st="ok"
         [[ $MI_P80_ST == err || $MI_P443_ST == err ]] && ports_st="err"
         rows=(
-            "Nom d'hote|$MI_HOST|"
-            "Adresse IP|$MI_IP|"
-            "CPU / RAM|$MI_CPU / $MI_RAM_TXT|$hw_st"
-            "Disque /var|$MI_DISK_TXT|$MI_DISK_ST"
-            "Pare-feu|$MI_FW|$MI_FW_ST"
-            "Ports web|$MI_P80 / $MI_P443|$ports_st"
+            "$L_M_HOST|$MI_HOST|"
+            "$L_M_IP|$MI_IP|"
+            "$L_M_CPURAM|$MI_CPU / $MI_RAM_TXT|$hw_st"
+            "$L_M_DISK|$MI_DISK_TXT|$MI_DISK_ST"
+            "$L_M_FW|$MI_FW|$MI_FW_ST"
+            "$L_M_PORTS|$MI_P80 / $MI_P443|$ports_st"
         )
     fi
     local r lab val st c
@@ -767,17 +1243,9 @@ render_machine() {
 
 render_help() {
     local y=$(( BODY_Y + MACH_H ))
-    draw_box "$y" "$RIGHT_X" "$HELP_H" "$RIGHT_W" "Raccourcis" "$C_FRAME"
+    draw_box "$y" "$RIGHT_X" "$HELP_H" "$RIGHT_W" "$L_PANEL_KEYS" "$C_FRAME"
     local inner=$(( RIGHT_W - 4 ))
-    local keys=(
-        "Haut/Bas|deplacer"
-        "Entree|modifier / valider"
-        "Espace|oui / non"
-        "Gauche/Droite|plier / deplier"
-        "r|infos machine"
-        "t|theme clair/sombre"
-        "q|quitter"
-    )
+    local keys=("${L_KEYS[@]}")
     local i=0 k lab
     for k in "${keys[@]}"; do
         (( i >= HELP_H - 2 )) && break
@@ -791,9 +1259,9 @@ render_help() {
     # bas du panneau : rappels utiles
     if (( HELP_H >= 14 )); then
         local notes=(
-            "Installation dans"
+            "$L_NOTE_TARGET"
             "  $GLPI_DIR"
-            "Journal"
+            "$L_NOTE_LOG"
             "  $LOGFILE"
         )
         rep_char "$BX_H" "$inner"
@@ -808,7 +1276,7 @@ render_help() {
 }
 
 render_button() {
-    local col=$C_FRAME lab="[ INSTALLER ]"
+    local col=$C_FRAME lab="$L_BTN_INSTALL"
     sel_is_button && col=$C_FRAME_ON
     draw_box "$FOOT_Y" 1 "$FOOT_H" "$COLS" "" "$col"
     local x=$(( (COLS - ${#lab}) / 2 ))
@@ -828,13 +1296,13 @@ render_status() {
     esac
     if [[ -z $txt ]]; then
         if sel_is_button; then
-            txt="Entree pour lancer l'installation de GLPI."
+            txt="$L_ST_BUTTON"
         else
             local i=${VR_IDX[$SEL]}
             if [[ ${VR_TYPE[$SEL]} == fld ]]; then
                 txt=${FLD_HINT[i]}
             elif [[ ${VR_TYPE[$SEL]} == sec ]]; then
-                txt="Entree ou Gauche/Droite pour plier ou deplier la section."
+                txt="$L_ST_SECTION"
             fi
         fi
     fi
@@ -845,7 +1313,7 @@ render_status() {
 render_main() {
     BUF=$'\e[2J'
     if term_too_small; then
-        put 1 1 "${C_ERR}Terminal trop petit : ${COLS}x${ROWS}. Minimum requis 74x20.${C_RESET}"
+        put 1 1 "${C_ERR}$(printf "$L_TOO_SMALL" "$COLS" "$ROWS")${C_RESET}"
         printf '%s' "$BUF"
         return
     fi
@@ -859,7 +1327,7 @@ render_main() {
 }
 
 #==============================================================================
-#  7. SAISIE CLAVIER
+#  8. SAISIE CLAVIER
 #==============================================================================
 
 KEY=""
@@ -895,7 +1363,7 @@ read_key() {
 wait_key() { local k; IFS= read -rsn1 k 2>/dev/null; }
 
 #==============================================================================
-#  8. FENETRES MODALES
+#  9. FENETRES MODALES
 #==============================================================================
 
 # modal_box <h> <w> <titre> -> MX / MY (coin haut gauche)
@@ -959,7 +1427,7 @@ modal_message() {
         pad_str "${lines[i]}" $(( w - 4 ))
         put $(( MY + 1 + i )) $(( MX + 2 )) "${col}${PAD}${C_RESET}"
     done
-    pad_str "Appuyez sur une touche pour continuer" $(( w - 4 ))
+    pad_str "$L_ANY_KEY" $(( w - 4 ))
     put $(( MY + h - 2 )) $(( MX + 2 )) "${C_MUTED}${PAD}${C_RESET}"
     printf '%s' "$BUF"
     wait_key
@@ -984,7 +1452,7 @@ modal_confirm() {
             pad_str "${lines[i]}" $(( w - 4 ))
             put $(( MY + 1 + i )) $(( MX + 2 )) "${C_VALUE}${PAD}${C_RESET}"
         done
-        local yes="[ Oui ]" no="[ Non ]"
+        local yes="$L_YES" no="$L_NO"
         local by=$(( MY + h - 2 )) bx=$(( MX + w - 20 ))
         if (( choice == 0 )); then
             put "$by" "$bx" "${C_BTN_ON}${C_BOLD}${yes}${C_RESET}  ${C_MUTED}${no}${C_RESET}"
@@ -1017,14 +1485,64 @@ modal_edit() {
     put $(( MY + 2 )) $(( MX + 2 )) "${C_MUTED}${PAD}${C_RESET}"
     rep_char "$BX_H" $(( w - 6 ))
     put $(( MY + 5 )) $(( MX + 3 )) "${C_FRAME}${REPC}${C_RESET}"
-    pad_str "Entree : valider     Echap : annuler" $(( w - 4 ))
+    pad_str "$L_EDIT_HELP" $(( w - 4 ))
     put $(( MY + 6 )) $(( MX + 2 )) "${C_MUTED}${PAD}${C_RESET}"
     printf '%s' "$BUF"
     edit_line $(( MY + 4 )) $(( MX + 3 )) $(( w - 6 )) "$cur" "$mask"
 }
 
+# --- Choix de la langue au demarrage ---------------------------------------
+# Renvoie 0 si une langue a ete choisie, 1 si l'utilisateur abandonne.
+select_language() {
+    local sel=0 i
+    local -a codes=("fr" "en")
+    local -a names=("Francais" "English")
+
+    case "${GLPI_LANG:-}" in
+        fr|FR|fr_FR) UILANG="fr"; return 0 ;;
+        en|EN|en_US) UILANG="en"; return 0 ;;
+    esac
+
+    while :; do
+        (( RESIZED )) && { compute_layout; RESIZED=0; }
+        local w=46 h=10
+        (( w > COLS - 4 )) && w=$(( COLS - 4 ))
+        local y=$(( (ROWS - h) / 2 )) x=$(( (COLS - w) / 2 ))
+        (( y < 1 )) && y=1
+        (( x < 1 )) && x=1
+
+        BUF=$'\e[2J'
+        draw_box "$y" "$x" "$h" "$w" "GLPI AUTO" "$C_FRAME_ON"
+        pad_str "Choisissez votre langue" $(( w - 4 ))
+        put $(( y + 1 )) $(( x + 2 )) "${C_LABEL}${PAD}${C_RESET}"
+        pad_str "Choose your language" $(( w - 4 ))
+        put $(( y + 2 )) $(( x + 2 )) "${C_MUTED}${PAD}${C_RESET}"
+        for (( i = 0; i < ${#names[@]}; i++ )); do
+            pad_str "${names[i]}" $(( w - 8 ))
+            if (( sel == i )); then
+                put $(( y + 4 + i )) $(( x + 2 )) "${C_SEL}${C_BOLD}${C_VALUE}  > ${PAD} ${C_RESET}"
+            else
+                put $(( y + 4 + i )) $(( x + 2 )) "${C_VALUE}    ${PAD} ${C_RESET}"
+            fi
+        done
+        pad_str "Fleches + Entree / Arrows + Enter" $(( w - 4 ))
+        put $(( y + h - 2 )) $(( x + 2 )) "${C_MUTED}${PAD}${C_RESET}"
+        printf '%s' "$BUF"
+
+        read_key
+        case $KEY in
+            UP|"CHAR:k")   (( sel > 0 )) && sel=$(( sel - 1 )) ;;
+            DOWN|"CHAR:j"|TAB) (( sel < ${#names[@]} - 1 )) && sel=$(( sel + 1 )) ;;
+            "CHAR:f"|"CHAR:F") sel=0 ;;
+            "CHAR:e"|"CHAR:E") sel=1 ;;
+            ENTER|SPACE) UILANG=${codes[sel]}; return 0 ;;
+            ESC|"CHAR:q"|"CHAR:Q") return 1 ;;
+        esac
+    done
+}
+
 #==============================================================================
-#  9. INTERACTION AVEC LE FORMULAIRE
+#  10. INTERACTION AVEC LE FORMULAIRE
 #==============================================================================
 
 toggle_bool() {
@@ -1038,19 +1556,19 @@ validate_value() {
     VERR=""
     case $kind in
         ident)
-            [[ $v =~ ^[a-zA-Z0-9_]+$ ]] || VERR="Seuls les lettres, chiffres et le tiret bas sont autorises."
+            [[ $v =~ ^[a-zA-Z0-9_]+$ ]] || VERR="$L_ERR_IDENT"
             ;;
         pass)
-            if (( ${#v} < 8 )); then VERR="Le mot de passe doit faire au moins 8 caracteres."
-            elif [[ $v =~ [\'\"\\\`\ ] ]]; then VERR="Caracteres interdits : espace, quote, double quote, antislash, accent grave."
+            if (( ${#v} < 8 )); then VERR="$L_ERR_PASS_SHORT"
+            elif [[ $v =~ [\'\"\\\`\ ] ]]; then VERR="$L_ERR_PASS_CHARS"
             fi
             ;;
         host)
-            [[ $v =~ ^[a-zA-Z0-9._-]+$ ]] || VERR="Domaine ou adresse IP invalide."
+            [[ $v =~ ^[a-zA-Z0-9._-]+$ ]] || VERR="$L_ERR_HOST"
             ;;
         days)
-            if [[ ! $v =~ ^[0-9]+$ ]]; then VERR="Saisissez un nombre de jours."
-            elif (( v < 1 || v > 3650 )); then VERR="La duree doit etre comprise entre 1 et 3650 jours."
+            if [[ ! $v =~ ^[0-9]+$ ]]; then VERR="$L_ERR_DAYS_NUM"
+            elif (( v < 1 || v > 3650 )); then VERR="$L_ERR_DAYS_RANGE"
             fi
             ;;
     esac
@@ -1079,13 +1597,13 @@ edit_field() {
         modal_edit "${FLD_LABEL[i]}" "${FLD_LABEL[i]} :" "${VAL[$key]}" "$mask" "${FLD_HINT[i]}" || return
         local v=$EDITED
         if [[ $kind != none ]] && ! validate_value "$kind" "$v"; then
-            modal_message "Valeur invalide" "$VERR" "$C_ERR"
+            modal_message "$L_INVALID_T" "$VERR" "$C_ERR"
             continue
         fi
         if (( mask )); then
-            modal_edit "${FLD_LABEL[i]}" "Confirmez le mot de passe :" "" 1 "Ressaisissez la meme valeur." || return
+            modal_edit "${FLD_LABEL[i]}" "$L_PASS_CONFIRM" "" 1 "$L_PASS_RETYPE" || return
             if [[ $EDITED != "$v" ]]; then
-                modal_message "Mots de passe differents" $'Les deux saisies ne correspondent pas.\nVeuillez recommencer.' "$C_ERR"
+                modal_message "$L_PASS_MISMATCH_T" "$L_PASS_MISMATCH" "$C_ERR"
                 continue
             fi
         fi
@@ -1108,14 +1626,14 @@ validate_form() {
     done
     if [[ ${VAL[db_auto]} == non ]]; then
         if ! validate_value pass "${VAL[db_pass]}"; then
-            FERR="Mot de passe MySQL : $VERR"; FKEY="db_pass"; return 1
+            FERR="$L_F_DBPASS : $VERR"; FKEY="db_pass"; return 1
         fi
     fi
     if ! validate_value pass "${VAL[root_pass]}"; then
-        FERR="Mot de passe root MariaDB : $VERR"; FKEY="root_pass"; return 1
+        FERR="$L_F_ROOTPASS : $VERR"; FKEY="root_pass"; return 1
     fi
     if [[ ${VAL[ssl]} == oui ]] && ! validate_value days "${VAL[ssl_days]}"; then
-        FERR="Duree du certificat : $VERR"; FKEY="ssl_days"; return 1
+        FERR="$L_F_SSLDAYS : $VERR"; FKEY="ssl_days"; return 1
     fi
     return 0
 }
@@ -1143,7 +1661,7 @@ move_sel() {
 }
 
 #==============================================================================
-#  10. ECRANS D'ANIMATION (TUX + BARRE DE PROGRESSION)
+#  11. ECRANS D'ANIMATION (TUX + BARRE DE PROGRESSION)
 #==============================================================================
 
 ANIM_MODE="download"   # download | install
@@ -1177,11 +1695,11 @@ anim_begin() {
     ANIM_MODE=$1
     compute_layout
     anim_layout
-    local title="TELECHARGEMENT DES COMPOSANTS"
-    [[ $ANIM_MODE == install ]] && title="INSTALLATION"
+    local title="$L_ANIM_DL_TITLE"
+    [[ $ANIM_MODE == install ]] && title="$L_ANIM_INST_TITLE"
     BUF=$'\e[2J'
     draw_box "$ANIM_Y" "$ANIM_X" "$ANIM_H" "$ANIM_W" "$title" "$C_FRAME_ON"
-    pad_str " Journal complet : $LOGFILE" "$COLS"
+    pad_str " $(printf "$L_ANIM_LOG" "$LOGFILE")" "$COLS"
     put "$ROWS" 1 "${C_MUTED}${PAD}${C_RESET}"
     printf '%s' "$BUF"
     RESIZED=0
@@ -1191,11 +1709,11 @@ anim_begin() {
 human_size() {
     local b=$1
     if (( b >= 1048576 )); then
-        printf '%d,%d Mo' $(( b / 1048576 )) $(( (b % 1048576) * 10 / 1048576 ))
+        printf '%d%s%d %s' $(( b / 1048576 )) "$L_DECIMAL" $(( (b % 1048576) * 10 / 1048576 )) "$L_U_MB"
     elif (( b >= 1024 )); then
-        printf '%d Ko' $(( b / 1024 ))
+        printf '%d %s' $(( b / 1024 )) "$L_U_KB"
     else
-        printf '%d o' "$b"
+        printf '%d %s' "$b" "$L_U_B"
     fi
 }
 
@@ -1208,7 +1726,7 @@ anim_info_line() {
             printf '%s' "$(human_size "$cur") / $(human_size "$tot")"
             return
         fi
-        (( cur > 0 )) && { printf '%s' "$(human_size "$cur") recus"; return; }
+        (( cur > 0 )) && { printf "$L_DL_RECEIVED" "$(human_size "$cur")"; return; }
     fi
     printf '%s' ""
 }
@@ -1257,9 +1775,9 @@ anim_tick() {
             2) dots=".." ;;
             *) dots="..." ;;
         esac
-        ptitle="INSTALLATION EN COURS${dots}"
+        ptitle="${L_ANIM_INST_PHASE}${dots}"
     else
-        ptitle="TELECHARGEMENT EN COURS"
+        ptitle="$L_ANIM_DL_PHASE"
     fi
     local px=$(( ix + (inner - ${#ptitle}) / 2 ))
     (( px < ix )) && px=$ix
@@ -1283,7 +1801,7 @@ anim_tick() {
 }
 
 #==============================================================================
-#  11. SONDES DE PROGRESSION
+#  12. SONDES DE PROGRESSION
 #==============================================================================
 
 probe_apt() {
@@ -1343,7 +1861,7 @@ probe_wget() {
 }
 
 #==============================================================================
-#  12. MOTEUR D'EXECUTION DES ETAPES
+#  13. MOTEUR D'EXECUTION DES ETAPES
 #==============================================================================
 
 log_line() { printf '%s\n' "$*" >>"$LOGFILE"; }
@@ -1379,21 +1897,21 @@ fatal() {
     local tail_log
     tail_log=$(tail -n 6 "$STEP_LOG" 2>/dev/null | cut -c1-70)
     compute_layout
-    modal_message "Echec de l'installation" \
+    modal_message "$L_FATAL_T" \
 "$msg
 
-Dernieres lignes du journal :
-${tail_log:-aucune}
+$L_FATAL_LOGTAIL
+${tail_log:-$L_FATAL_NONE}
 
-Journal complet : $LOGFILE" "$C_ERR"
+$(printf "$L_FATAL_LOG" "$LOGFILE")" "$C_ERR"
     tui_stop
-    printf '%s\n' "ECHEC : $msg" >&2
-    printf '%s\n' "Consultez $LOGFILE" >&2
+    printf "$L_FATAL_CLI\n" "$msg" >&2
+    printf "$L_FATAL_CLI2\n" "$LOGFILE" >&2
     exit 1
 }
 
 #==============================================================================
-#  13. TACHES D'INSTALLATION
+#  14. TACHES D'INSTALLATION
 #==============================================================================
 
 # LC_ALL=C : les messages d'apt servent au calcul de progression,
@@ -1578,7 +2096,7 @@ do_php_config() {
         [[ -f $ini ]] || continue
         sed -i "s/^;*[[:space:]]*session.cookie_httponly[[:space:]]*=.*/session.cookie_httponly = On/" "$ini"
         sed -i "s/^;*[[:space:]]*session.cookie_secure[[:space:]]*=.*/session.cookie_secure = On/" "$ini"
-        sed -i "s/^;*[[:space:]]*intl.default_locale[[:space:]]*=.*/intl.default_locale = fr_FR/" "$ini"
+        sed -i "s/^;*[[:space:]]*intl.default_locale[[:space:]]*=.*/intl.default_locale = $PHP_LOCALE/" "$ini"
         sed -i "s/^;*[[:space:]]*upload_max_filesize[[:space:]]*=.*/upload_max_filesize = 32M/" "$ini"
         sed -i "s/^;*[[:space:]]*post_max_size[[:space:]]*=.*/post_max_size = 32M/" "$ini"
         sed -i "s/^;*[[:space:]]*memory_limit[[:space:]]*=.*/memory_limit = 256M/" "$ini"
@@ -1624,13 +2142,13 @@ do_firewall() {
 do_uninstaller() {
     cat >./uninstall-glpi.sh <<REMOVE
 #!/bin/bash
-# Desinstallation de GLPI generee par install-glpi-https.sh
+# $L_UN_HEAD
 export PATH=\$PATH:/usr/sbin:/sbin
 
-echo "Suppression des fichiers GLPI..."
+echo "$L_UN_FILES"
 rm -rf "$GLPI_DIR" "$GLPI_ARCHIVE" "$GLPI_DATA"
 
-echo "Suppression de la configuration Apache..."
+echo "$L_UN_APACHE"
 rm -f /etc/apache2/sites-available/glpi.conf /etc/apache2/sites-available/glpi-ssl.conf
 rm -rf "$SSL_DIR"
 a2dissite glpi.conf 2>/dev/null
@@ -1638,17 +2156,17 @@ a2dissite glpi-ssl.conf 2>/dev/null
 a2ensite 000-default.conf 2>/dev/null
 systemctl reload apache2 2>/dev/null
 
-echo "Suppression de la base de donnees..."
+echo "$L_UN_DB"
 if [ -f "$MYSQL_CRED" ]; then
   mysql --defaults-file="$MYSQL_CRED" -e "DROP DATABASE IF EXISTS \\\`$DB_NAME\\\`;"
   mysql --defaults-file="$MYSQL_CRED" -e "DROP USER IF EXISTS '$DB_USER'@'localhost';"
   mysql --defaults-file="$MYSQL_CRED" -e "DROP USER IF EXISTS '$DB_USER'@'%';"
 else
-  echo "Fichier de credentials MySQL introuvable."
-  echo "Supprimez manuellement la base '$DB_NAME' et l'utilisateur '$DB_USER'."
+  echo "$L_UN_NOCRED"
+  echo "$(printf "$L_UN_MANUAL" "$DB_NAME" "$DB_USER")"
 fi
 
-echo "GLPI et ses composants ont ete supprimes."
+echo "$L_UN_DONE"
 REMOVE
     chmod +x ./uninstall-glpi.sh
 }
@@ -1662,7 +2180,7 @@ do_cleanup_logs() {
 }
 
 #==============================================================================
-#  14. DEROULEMENT DE L'INSTALLATION
+#  15. DEROULEMENT DE L'INSTALLATION
 #==============================================================================
 
 run_install() {
@@ -1690,41 +2208,41 @@ run_install() {
     #---------------------------------------------------------- phase 1 : DL
     anim_begin download
 
-    step_run "Mise a jour des listes de paquets" 0 10 probe_apt_update \
+    step_run "$L_S_APT_UPDATE" 0 10 probe_apt_update \
         do_apt_update \
-        || fatal "La mise a jour des listes de paquets a echoue."
+        || fatal "$L_E_APT_UPDATE"
 
-    step_run "Installation d'Apache et MariaDB" 10 40 probe_apt \
+    step_run "$L_S_APT_WEB" 10 40 probe_apt \
         do_apt_install apache2 mariadb-server \
-        || fatal "L'installation du serveur web ou de MariaDB a echoue."
+        || fatal "$L_E_APT_WEB"
 
-    step_run "Installation de PHP et de ses extensions" 40 70 probe_apt \
+    step_run "$L_S_APT_PHP" 40 70 probe_apt \
         do_apt_install php php-mysql php-xml php-mbstring php-curl php-gd php-intl \
                        php-ldap php-imap php-zip php-bz2 php-cli php-apcu php-bcmath \
                        php-opcache php-exif libapache2-mod-php \
-        || fatal "L'installation de PHP a echoue."
+        || fatal "$L_E_APT_PHP"
 
-    step_run "Installation des utilitaires" 70 78 probe_apt \
+    step_run "$L_S_APT_TOOLS" 70 78 probe_apt \
         do_apt_install unzip wget tar curl openssl ca-certificates \
-        || fatal "L'installation des utilitaires a echoue."
+        || fatal "$L_E_APT_TOOLS"
 
-    step_run "Recherche de la derniere version de GLPI" 78 82 - \
+    step_run "$L_S_FETCH" 78 82 - \
         do_fetch_glpi_url \
-        || fatal "Impossible de determiner la version de GLPI a telecharger."
+        || fatal "$L_E_FETCH"
 
     GLPI_URL=$(cat /tmp/glpi-url.txt 2>/dev/null)
     [[ -z $GLPI_URL ]] && GLPI_URL="$GLPI_FALLBACK_URL"
     log_line "Archive: $GLPI_URL"
 
-    STEP_LABEL="Preparation du telechargement"
+    STEP_LABEL="$L_S_PREPARE_DL"
     anim_tick
     DL_FILE="$GLPI_ARCHIVE"
     DL_TOTAL=$(wget --spider -S "$GLPI_URL" 2>&1 | awk '/[Cc]ontent-[Ll]ength:/ {print $2}' | tail -n1 | tr -d '\r')
     [[ $DL_TOTAL =~ ^[0-9]+$ ]] || DL_TOTAL=0
 
-    step_run "Telechargement de l'archive GLPI" 82 100 probe_wget \
+    step_run "$L_S_DOWNLOAD" 82 100 probe_wget \
         do_download_glpi \
-        || fatal "Le telechargement de GLPI a echoue."
+        || fatal "$L_E_DOWNLOAD"
 
     DL_FILE=""
     sleep 0.4
@@ -1732,75 +2250,75 @@ run_install() {
     #------------------------------------------------------ phase 2 : INSTALL
     anim_begin install
 
-    step_run "Extraction de l'archive" 0 14 - \
+    step_run "$L_S_EXTRACT" 0 14 - \
         do_extract_glpi \
-        || fatal "L'extraction de l'archive GLPI a echoue."
+        || fatal "$L_E_EXTRACT"
 
-    step_run "Mise en place des fichiers" 14 20 - \
+    step_run "$L_S_MOVE" 14 20 - \
         do_move_glpi \
-        || fatal "Le repertoire GLPI n'a pas pu etre cree."
+        || fatal "$L_E_MOVE"
 
-    step_run "Creation de la base de donnees" 20 30 - \
+    step_run "$L_S_CREATE_DB" 20 30 - \
         do_create_db \
-        || fatal "La creation de la base de donnees a echoue."
+        || fatal "$L_E_CREATE_DB"
 
-    step_run "Securisation de MariaDB" 30 40 - \
+    step_run "$L_S_SECURE_DB" 30 40 - \
         do_secure_mariadb \
-        || fatal "La securisation de MariaDB a echoue."
+        || fatal "$L_E_SECURE_DB"
 
-    step_run "Configuration de l'ecoute MariaDB" 40 48 - \
+    step_run "$L_S_BIND_DB" 40 48 - \
         do_bind_mariadb \
-        || fatal "Le redemarrage de MariaDB a echoue."
+        || fatal "$L_E_BIND_DB"
 
-    step_run "Permissions et repertoires proteges" 48 58 - \
+    step_run "$L_S_PERMS" 48 58 - \
         do_permissions \
-        || fatal "L'application des permissions a echoue."
+        || fatal "$L_E_PERMS"
 
-    step_run "Configuration d'Apache et du certificat" 58 72 - \
+    step_run "$L_S_APACHE" 58 72 - \
         do_apache_vhost \
-        || fatal "La configuration d'Apache a echoue."
+        || fatal "$L_E_APACHE"
 
-    step_run "Configuration de PHP" 72 78 - \
+    step_run "$L_S_PHP" 72 78 - \
         do_php_config \
-        || fatal "La configuration de PHP a echoue."
+        || fatal "$L_E_PHP"
 
-    step_run "Protection des repertoires sensibles" 78 84 - \
+    step_run "$L_S_HTACCESS" 78 84 - \
         do_htaccess \
-        || fatal "L'ecriture des fichiers .htaccess a echoue."
+        || fatal "$L_E_HTACCESS"
 
     if [[ ${VAL[firewall]} == oui ]]; then
-        step_run "Configuration du pare-feu UFW" 84 92 - \
+        step_run "$L_S_FIREWALL" 84 92 - \
             do_firewall \
-            || fatal "La configuration du pare-feu a echoue."
+            || fatal "$L_E_FIREWALL"
     else
-        PCT=92; STEP_LABEL="Pare-feu ignore"; anim_tick
+        PCT=92; STEP_LABEL="$L_S_FIREWALL_SKIP"; anim_tick
     fi
 
     if [[ ${VAL[uninstaller]} == oui ]]; then
-        step_run "Generation du script de desinstallation" 92 96 - \
+        step_run "$L_S_UNINSTALL" 92 96 - \
             do_uninstaller \
-            || fatal "La generation du script de desinstallation a echoue."
+            || fatal "$L_E_UNINSTALL"
     fi
 
-    step_run "Nettoyage" 96 100 - do_cleanup_logs
+    step_run "$L_S_CLEANUP" 96 100 - do_cleanup_logs
 
-    STEP_LABEL="Termine"
+    STEP_LABEL="$L_S_DONE"
     PCT=100
     anim_tick
     sleep 0.6
 }
 
 #==============================================================================
-#  15. ECRAN FINAL
+#  16. ECRAN FINAL
 #==============================================================================
 
 run_tests() {
-    TEST_APACHE="Apache : arrete"
-    TEST_MDB="MariaDB : arrete"
-    TEST_DIR="Repertoire GLPI : absent"
-    systemctl is-active --quiet apache2 && TEST_APACHE="Apache : actif"
-    systemctl is-active --quiet mariadb && TEST_MDB="MariaDB : actif"
-    [[ -d $GLPI_DIR ]] && TEST_DIR="Repertoire GLPI : present"
+    TEST_APACHE="$L_TEST_APACHE_DOWN"
+    TEST_MDB="$L_TEST_MDB_DOWN"
+    TEST_DIR="$L_TEST_DIR_KO"
+    systemctl is-active --quiet apache2 && TEST_APACHE="$L_TEST_APACHE_UP"
+    systemctl is-active --quiet mariadb && TEST_MDB="$L_TEST_MDB_UP"
+    [[ -d $GLPI_DIR ]] && TEST_DIR="$L_TEST_DIR_OK"
 }
 
 final_screen() {
@@ -1813,7 +2331,7 @@ final_screen() {
         run_tests
         tests="
 
-Verifications :
+$L_TEST_HEAD
   $TEST_APACHE
   $TEST_MDB
   $TEST_DIR"
@@ -1822,24 +2340,22 @@ Verifications :
     local uninst=""
     [[ ${VAL[uninstaller]} == oui ]] && uninst="
 
-Desinstallation : ./uninstall-glpi.sh"
+$L_FINAL_UNINSTALL"
 
-    RECAP="Installation terminee.
+    RECAP="$L_FINAL_DONE
 
-Acces GLPI      : $url
-Adresse IP      : $MI_IP
+$(printf '%-15s : %s' "$L_FINAL_URL" "$url")
+$(printf '%-15s : %s' "$L_FINAL_IP" "$MI_IP")
 
-Base de donnees : $DB_NAME
-Utilisateur     : $DB_USER
-Mot de passe    : $DB_PASS
-Root MariaDB    : enregistre dans $MYSQL_CRED
+$(printf '%-15s : %s' "$L_FINAL_DB" "$DB_NAME")
+$(printf '%-15s : %s' "$L_FINAL_USER" "$DB_USER")
+$(printf '%-15s : %s' "$L_FINAL_PASS" "$DB_PASS")
+$(printf '%-15s : ' "$L_FINAL_ROOT")$(printf "$L_FINAL_ROOT_V" "$MYSQL_CRED")
 
-Identifiants GLPI par defaut : glpi / glpi
-ATTENTION : changez-les des la premiere connexion
-et supprimez le repertoire $GLPI_DIR/install
-une fois l'assistant web termine.$tests$uninst
+$L_FINAL_DEFAULT
+$(printf "$L_FINAL_WARN" "$GLPI_DIR/install")$tests$uninst
 
-Journal : $LOGFILE"
+$(printf '%-15s : %s' "$L_FINAL_LOG" "$LOGFILE")"
 
     compute_layout
     BUF=$'\e[2J'
@@ -1848,41 +2364,51 @@ Journal : $LOGFILE"
     local -a lines
     local l
     while IFS= read -r l; do lines+=("$l"); done <<<"$RECAP"
+    # ecran trop court : on supprime d'abord les lignes vides plutot que de
+    # tronquer la fin du recapitulatif
+    if (( ${#lines[@]} + 4 > ROWS - 2 )); then
+        local -a compact=()
+        for l in "${lines[@]}"; do [[ -n $l ]] && compact+=("$l"); done
+        lines=("${compact[@]}")
+    fi
     local h=$(( ${#lines[@]} + 4 ))
     (( h > ROWS - 2 )) && h=$(( ROWS - 2 ))
     local y=$(( (ROWS - h) / 2 )) x=$(( (COLS - w) / 2 ))
     (( y < 1 )) && y=1
     (( x < 1 )) && x=1
-    draw_box "$y" "$x" "$h" "$w" "GLPI - INSTALLATION TERMINEE" "$C_FRAME_ON"
+    draw_box "$y" "$x" "$h" "$w" "$L_FINAL_T" "$C_FRAME_ON"
     local i c
     for (( i = 0; i < ${#lines[@]} && i < h - 4; i++ )); do
         c=$C_VALUE
-        [[ ${lines[i]} == ATTENTION* ]] && c=$C_WARN
-        [[ ${lines[i]} == "Installation terminee."* ]] && c=$C_OK
+        [[ ${lines[i]} == ATTENTION* || ${lines[i]} == WARNING* ]] && c=$C_WARN
+        [[ ${lines[i]} == "$L_FINAL_DONE" ]] && c=$C_OK
         pad_str "${lines[i]}" $(( w - 4 ))
         put $(( y + 1 + i )) $(( x + 2 )) "${c}${PAD}${C_RESET}"
     done
-    pad_str "Appuyez sur une touche pour quitter" $(( w - 4 ))
+    pad_str "$L_ANY_KEY_QUIT" $(( w - 4 ))
     put $(( y + h - 2 )) $(( x + 2 )) "${C_MUTED}${PAD}${C_RESET}"
     printf '%s' "$BUF"
     wait_key
 }
 
 #==============================================================================
-#  16. VERIFICATIONS PREALABLES
+#  17. VERIFICATIONS PREALABLES
 #==============================================================================
 
 precheck() {
     if [[ $EUID -ne 0 ]]; then
-        printf 'Ce script doit etre execute avec sudo ou en tant que root.\n' >&2
+        printf '%s\n' "Ce script doit etre execute avec sudo ou en tant que root." >&2
+        printf '%s\n' "This script must be run with sudo or as root." >&2
         exit 1
     fi
     if [[ ! -t 0 || ! -t 1 ]]; then
-        printf "Ce script necessite un terminal interactif.\n" >&2
+        printf '%s\n' "Ce script necessite un terminal interactif." >&2
+        printf '%s\n' "This script requires an interactive terminal." >&2
         exit 1
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
-        printf 'Systeme non supporte : apt-get est introuvable (Debian 12 attendu).\n' >&2
+        printf '%s\n' "Systeme non supporte : apt-get est introuvable (Debian 12 attendu)." >&2
+        printf '%s\n' "Unsupported system: apt-get not found (Debian 12 expected)." >&2
         exit 1
     fi
     touch "$LOGFILE" 2>/dev/null || LOGFILE="/tmp/glpi-install.log"
@@ -1900,7 +2426,7 @@ check_internet() {
 }
 
 #==============================================================================
-#  17. BOUCLE PRINCIPALE
+#  18. BOUCLE PRINCIPALE
 #==============================================================================
 
 cleanup() {
@@ -1958,28 +2484,23 @@ main_loop() {
                     if validate_form; then
                         local extra=""
                         [[ -d $GLPI_DIR ]] && extra="
-ATTENTION : $GLPI_DIR existe deja
-et sera entierement supprime puis recree.
+$(printf "$L_CONFIRM_EXISTS" "$GLPI_DIR")
 "
                         if (( ${#HW_SHORT[@]} > 0 )); then
                             local causes="${HW_SHORT[*]}"
                             extra+="
-ATTENTION : materiel sous-dimensionne
+$L_CONFIRM_HW
 (${causes// /, })
 "
                         fi
-                        if modal_confirm "Confirmation" \
-"L'installation de GLPI va demarrer.
-
-Les paquets Apache, MariaDB et PHP seront
-installes et la configuration du serveur
-sera modifiee.
+                        if modal_confirm "$L_CONFIRM_T" \
+"$L_CONFIRM_BODY
 $extra
-Lancer l'installation ?"; then
+$L_CONFIRM_ASK"; then
                             return 0
                         fi
                     else
-                        modal_message "Configuration incomplete" "$FERR" "$C_ERR"
+                        modal_message "$L_FORM_INCOMPLETE_T" "$FERR" "$C_ERR"
                         select_field_row "$FKEY"
                     fi
                 elif [[ ${VR_TYPE[$SEL]} == sec ]]; then
@@ -1991,22 +2512,22 @@ Lancer l'installation ?"; then
             "CHAR:t"|"CHAR:T")
                 toggle_theme
                 if [[ $THEME == light ]]; then
-                    STATUS_MSG="Theme clair active (touche t pour revenir au theme sombre)."
+                    STATUS_MSG="$L_ST_THEME_LIGHT"
                 else
-                    STATUS_MSG="Theme sombre active (touche t pour passer au theme clair)."
+                    STATUS_MSG="$L_ST_THEME_DARK"
                 fi
                 STATUS_KIND="ok"
                 ;;
             "CHAR:r"|"CHAR:R")
-                STATUS_MSG="Actualisation des informations machine..."
+                STATUS_MSG="$L_ST_REFRESHING"
                 STATUS_KIND="info"
                 render_main
                 collect_machine_info
-                STATUS_MSG="Informations machine actualisees."
+                STATUS_MSG="$L_ST_REFRESHED"
                 STATUS_KIND="ok"
                 ;;
             "CHAR:q"|"CHAR:Q"|ESC)
-                if modal_confirm "Quitter" "Quitter sans installer GLPI ?"; then
+                if modal_confirm "$L_QUIT_T" "$L_QUIT_ASK"; then
                     return 1
                 fi
                 ;;
@@ -2020,7 +2541,6 @@ main() {
     setup_colors
     precheck
     load_tux
-    build_form
 
     trap cleanup EXIT
     trap 'cleanup; exit 130' INT TERM
@@ -2034,6 +2554,15 @@ main() {
     detect_theme
     setup_colors
 
+    if ! select_language; then
+        cleanup
+        printf '%s\n' "Installation annulee. / Installation cancelled."
+        exit 0
+    fi
+    load_strings
+    build_form
+    if [[ $UILANG == en ]]; then PHP_LOCALE="en_US"; else PHP_LOCALE="fr_FR"; fi
+
     collect_machine_info
     VAL[domain]="$MI_IP"
 
@@ -2041,24 +2570,23 @@ main() {
         render_main
         wait_key
         cleanup
-        printf 'Agrandissez la fenetre du terminal (minimum 74x20) puis relancez le script.\n' >&2
+        printf '%s\n' "$L_TOO_SMALL_CLI" >&2
         exit 1
     fi
 
     if (( ${#HW_ISSUES[@]} > 0 )); then
         local hwcol=$C_WARN
         hw_is_critical && hwcol=$C_ERR
-        modal_message "Materiel sous-dimensionne" "$(hw_warning_text)" "$hwcol"
+        modal_message "$L_HW_T" "$(hw_warning_text)" "$hwcol"
     fi
 
     if ! check_internet; then
-        modal_message "Pas de connexion Internet" \
-$'Impossible de joindre Internet.\n\nUne connexion est necessaire pour telecharger\nles paquets et l\'archive GLPI.' "$C_ERR"
+        modal_message "$L_NET_T" "$L_NET_BODY" "$C_ERR"
     fi
 
     if ! main_loop; then
         cleanup
-        printf 'Installation annulee par l\047utilisateur.\n'
+        printf '%s\n' "$L_CANCELLED"
         exit 0
     fi
 

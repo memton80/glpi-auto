@@ -107,7 +107,9 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 - **Thème clair ou sombre** détecté automatiquement à partir de la couleur de fond
   du terminal, avec bascule manuelle par la touche `t` ou la variable
   d'environnement `GLPI_THEME=light|dark`
-- Interface en français uniquement / French interface only
+- **Français ou anglais**, choisi sur un écran au lancement du script, ou imposé
+  par la variable d'environnement `GLPI_LANG=fr|en` / **French or English**,
+  selected on a startup screen or forced with `GLPI_LANG=fr|en`
 
 ### Configuration SSL / SSL Configuration
 
@@ -222,7 +224,18 @@ modification ne soit appliquée au système.
 Everything is configured on a single screen, before any change is applied to
 the system.
 
-### 1. Écran de configuration / Configuration screen
+### 1. Choix de la langue / Language selection
+
+Le script s'ouvre sur un écran bilingue proposant **Français** et **English**.
+Toute la suite (formulaire, avertissements, écrans d'installation, récapitulatif
+et script de désinstallation généré) utilise la langue retenue. `GLPI_LANG=fr` ou
+`GLPI_LANG=en` permet de sauter cet écran.
+
+The script opens on a bilingual screen offering **Français** and **English**. The
+whole session then uses the selected language. Set `GLPI_LANG=fr` or
+`GLPI_LANG=en` to skip that screen.
+
+### 2. Écran de configuration / Configuration screen
 
 Naviguez avec les flèches, `Entrée` pour modifier un champ, `Espace` pour basculer
 un `oui`/`non`, `Gauche`/`Droite` pour plier ou déplier une section, `r` pour
@@ -239,13 +252,13 @@ sombre, et `q` pour quitter.
 Les valeurs sont validées à la saisie (anti-injection SQL, longueur des mots de
 passe, double saisie de confirmation) puis une nouvelle fois avant l'installation.
 
-### 2. Téléchargement / Download
+### 3. Téléchargement / Download
 
 Écran avec Tux qui avance au rythme de la progression réelle:
 mise à jour des listes de paquets, Apache et MariaDB, PHP et ses extensions,
 utilitaires, puis l'archive GLPI (dernière version détectée sur GitHub).
 
-### 3. Installation
+### 4. Installation
 
 Écran avec Tux animé et la mention **INSTALLATION EN COURS**:
 extraction de l'archive, création de la base et de l'utilisateur, sécurisation de
@@ -253,7 +266,7 @@ MariaDB, écoute réseau, permissions et répertoires protégés, vhosts Apache 
 certificat, configuration PHP, `.htaccess`, pare-feu UFW, script de
 désinstallation.
 
-### 4. Récapitulatif / Summary
+### 5. Récapitulatif / Summary
 
 URL d'accès, identifiants de la base, emplacement des credentials root, résultat
 des tests de vérification et chemin du journal complet.
@@ -437,7 +450,7 @@ glpi-auto/
 - [x] Barres de progression réelles / Real progress bars
 - [x] Validation des entrées / Input validation
 - [x] Gestion sécurisée des credentials / Secure credentials management
-- [ ] Support multi-langue / Multi-language support (interface actuellement en français)
+- [x] Interface bilingue FR/EN avec choix au demarrage / Bilingual FR/EN interface with startup selection
 - [ ] Support de Debian 13 / Debian 13 support
 - [ ] Support Ubuntu 24.04 LTS / Ubuntu 24.04 LTS support
 - [ ] Mise à jour automatique de GLPI / Automatic GLPI updates
