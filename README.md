@@ -100,6 +100,9 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 - **Bouton INSTALLER** en bas, actif une fois la configuration validée
 - **Écrans d'installation** : Tux animé au-dessus d'une barre de progression, la
   sortie des commandes étant redirigée vers le journal plutôt qu'à l'écran
+- **Thème clair ou sombre** détecté automatiquement à partir de la couleur de fond
+  du terminal, avec bascule manuelle par la touche `t` ou la variable
+  d'environnement `GLPI_THEME=light|dark`
 - Interface en français uniquement / French interface only
 
 ### Configuration SSL / SSL Configuration
@@ -210,7 +213,8 @@ the system.
 
 Naviguez avec les flèches, `Entrée` pour modifier un champ, `Espace` pour basculer
 un `oui`/`non`, `Gauche`/`Droite` pour plier ou déplier une section, `r` pour
-actualiser les informations machine et `q` pour quitter.
+actualiser les informations machine, `t` pour basculer entre thème clair et
+sombre, et `q` pour quitter.
 
 | Section | Paramètres / Settings |
 |---|---|

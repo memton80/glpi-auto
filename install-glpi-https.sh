@@ -58,37 +58,109 @@ setup_charset() {
     fi
 }
 
+# THEME vaut "dark" (fond sombre) ou "light" (fond clair).
+THEME="dark"
+
+# Demande au terminal la couleur de son fond (OSC 11) pour choisir la palette.
+# En cas de non-reponse on retombe sur COLORFGBG puis sur le theme sombre.
+detect_theme() {
+    case "${GLPI_THEME:-}" in
+        light|clair)  THEME="light"; return ;;
+        dark|sombre)  THEME="dark";  return ;;
+    esac
+
+    THEME="dark"
+    local resp="" r g b lum saved=""
+    if [[ -t 0 && -t 1 ]]; then
+        saved=$(stty -g 2>/dev/null)
+        stty -echo 2>/dev/null
+        printf '\e]11;?\e\\'
+        IFS= read -rs -d '\' -t 0.3 resp 2>/dev/null
+        [[ -n $saved ]] && stty "$saved" 2>/dev/null
+    fi
+    if [[ $resp =~ rgb:([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4})/([0-9a-fA-F]{1,4}) ]]; then
+        # les composantes font 1 a 4 chiffres hexa : on ne garde que le poids fort
+        r=$(( 16#${BASH_REMATCH[1]:0:2} ))
+        g=$(( 16#${BASH_REMATCH[2]:0:2} ))
+        b=$(( 16#${BASH_REMATCH[3]:0:2} ))
+        lum=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
+        (( lum > 128 )) && THEME="light"
+        return
+    fi
+    # COLORFGBG = "avant-plan;arriere-plan", fond 7 ou 15 = clair
+    if [[ ${COLORFGBG:-} =~ ^[0-9]+\;([0-9]+)$ ]]; then
+        case "${BASH_REMATCH[1]}" in
+            7|15) THEME="light" ;;
+        esac
+    fi
+}
+
+toggle_theme() {
+    if [[ $THEME == dark ]]; then THEME="light"; else THEME="dark"; fi
+    setup_colors
+}
+
 setup_colors() {
     local ncol=8
     command -v tput >/dev/null 2>&1 && ncol=$(tput colors 2>/dev/null || echo 8)
     [[ "$ncol" =~ ^[0-9]+$ ]] || ncol=8
 
     C_RESET=$'\e[0m'; C_BOLD=$'\e[1m'; C_DIM=$'\e[2m'; C_REV=$'\e[7m'
+
     if (( ncol >= 256 )); then
-        C_FRAME=$'\e[38;5;240m'      # cadre inactif
-        C_FRAME_ON=$'\e[38;5;114m'   # cadre du panneau actif
-        C_TITLE=$'\e[38;5;81m'       # titres de panneaux
-        C_LABEL=$'\e[38;5;250m'
-        C_VALUE=$'\e[38;5;231m'
-        C_OK=$'\e[38;5;114m'
-        C_WARN=$'\e[38;5;214m'
-        C_ERR=$'\e[38;5;203m'
-        C_MUTED=$'\e[38;5;244m'
-        C_SEC=$'\e[38;5;147m'
-        C_SEL=$'\e[48;5;238m'
-        C_BTN=$'\e[38;5;114m'
-        C_BTN_ON=$'\e[48;5;114m\e[38;5;16m'
-        C_TUX=$'\e[38;5;255m'
-        C_TUX_FEET=$'\e[38;5;214m'
-        C_BAR=$'\e[38;5;114m'
-        C_BAR_BG=$'\e[38;5;238m'
+        if [[ $THEME == light ]]; then
+            C_FRAME=$'\e[38;5;245m'      # cadre inactif
+            C_FRAME_ON=$'\e[38;5;28m'    # cadre du panneau actif
+            C_TITLE=$'\e[38;5;25m'       # titres de panneaux
+            C_LABEL=$'\e[38;5;238m'
+            C_VALUE=$'\e[38;5;16m'
+            C_OK=$'\e[38;5;28m'
+            C_WARN=$'\e[38;5;130m'
+            C_ERR=$'\e[38;5;124m'
+            C_MUTED=$'\e[38;5;242m'
+            C_SEC=$'\e[38;5;54m'
+            C_SEL=$'\e[48;5;253m'
+            C_BTN=$'\e[38;5;28m'
+            C_BTN_ON=$'\e[48;5;28m\e[38;5;231m'
+            C_TUX=$'\e[38;5;16m'
+            C_TUX_FEET=$'\e[38;5;130m'
+            C_BAR=$'\e[38;5;28m'
+            C_BAR_BG=$'\e[38;5;252m'
+        else
+            C_FRAME=$'\e[38;5;240m'
+            C_FRAME_ON=$'\e[38;5;114m'
+            C_TITLE=$'\e[38;5;81m'
+            C_LABEL=$'\e[38;5;250m'
+            C_VALUE=$'\e[38;5;231m'
+            C_OK=$'\e[38;5;114m'
+            C_WARN=$'\e[38;5;214m'
+            C_ERR=$'\e[38;5;203m'
+            C_MUTED=$'\e[38;5;244m'
+            C_SEC=$'\e[38;5;147m'
+            C_SEL=$'\e[48;5;238m'
+            C_BTN=$'\e[38;5;114m'
+            C_BTN_ON=$'\e[48;5;114m\e[38;5;16m'
+            C_TUX=$'\e[38;5;255m'
+            C_TUX_FEET=$'\e[38;5;214m'
+            C_BAR=$'\e[38;5;114m'
+            C_BAR_BG=$'\e[38;5;238m'
+        fi
     else
-        C_FRAME=$'\e[90m'; C_FRAME_ON=$'\e[32m'; C_TITLE=$'\e[36m'
-        C_LABEL=$'\e[37m'; C_VALUE=$'\e[97m'; C_OK=$'\e[32m'
-        C_WARN=$'\e[33m'; C_ERR=$'\e[31m'; C_MUTED=$'\e[90m'
-        C_SEC=$'\e[36m'; C_SEL=$'\e[100m'; C_BTN=$'\e[32m'
-        C_BTN_ON=$'\e[42m\e[30m'; C_TUX=$'\e[97m'; C_TUX_FEET=$'\e[33m'
-        C_BAR=$'\e[32m'; C_BAR_BG=$'\e[90m'
+        if [[ $THEME == light ]]; then
+            C_FRAME=$'\e[90m'; C_FRAME_ON=$'\e[32m'; C_TITLE=$'\e[34m'
+            C_LABEL=$'\e[30m'; C_VALUE=$'\e[30m'; C_OK=$'\e[32m'
+            C_WARN=$'\e[33m'; C_ERR=$'\e[31m'; C_MUTED=$'\e[90m'
+            C_SEC=$'\e[35m'; C_SEL=$'\e[7m'; C_BTN=$'\e[32m'
+            C_BTN_ON=$'\e[42m\e[97m'; C_TUX=$'\e[30m'; C_TUX_FEET=$'\e[33m'
+            C_BAR=$'\e[32m'; C_BAR_BG=$'\e[37m'
+        else
+            C_FRAME=$'\e[90m'; C_FRAME_ON=$'\e[32m'; C_TITLE=$'\e[36m'
+            C_LABEL=$'\e[37m'; C_VALUE=$'\e[97m'; C_OK=$'\e[32m'
+            C_WARN=$'\e[33m'; C_ERR=$'\e[31m'; C_MUTED=$'\e[90m'
+            C_SEC=$'\e[36m'; C_SEL=$'\e[100m'; C_BTN=$'\e[32m'
+            C_BTN_ON=$'\e[42m\e[30m'; C_TUX=$'\e[97m'; C_TUX_FEET=$'\e[33m'
+            C_BAR=$'\e[32m'; C_BAR_BG=$'\e[90m'
+        fi
     fi
 }
 
@@ -130,6 +202,12 @@ compute_layout() {
     RIGHT_X=$(( COLS - RIGHT_W + 1 ))
     MACH_H=10
     HELP_H=$(( BODY_H - MACH_H ))
+    # sur un ecran court on rogne le panneau machine pour garder tous les
+    # raccourcis visibles (8 lignes suffisent a afficher ses six informations)
+    if (( HELP_H < 9 && MACH_H > 8 )); then
+        MACH_H=8
+        HELP_H=$(( BODY_H - MACH_H ))
+    fi
     (( HELP_H < 3 )) && { MACH_H=$(( BODY_H - 3 )); HELP_H=3; }
 
     FORM_ROWS=$(( BODY_H - 2 ))
@@ -495,8 +573,9 @@ render_form() {
                 ;;
             fld)
                 field_display "$idx"
-                pad_str "    ${FLD_LABEL[idx]}" "$labw"
-                local lab=$PAD
+                # -1 : on garde toujours une colonne vide entre libelle et valeur
+                pad_str "    ${FLD_LABEL[idx]}" $(( labw - 1 ))
+                local lab="$PAD "
                 pad_str "$DISPV" $(( inner - labw ))
                 local val=$PAD
                 if (( SEL == i )); then
@@ -554,6 +633,7 @@ render_help() {
         "Espace|oui / non"
         "Gauche/Droite|plier / deplier"
         "r|infos machine"
+        "t|theme clair/sombre"
         "q|quitter"
     )
     local i=0 k lab
@@ -567,7 +647,7 @@ render_help() {
     done
 
     # bas du panneau : rappels utiles
-    if (( HELP_H >= 12 )); then
+    if (( HELP_H >= 14 )); then
         local notes=(
             "Installation dans"
             "  $GLPI_DIR"
@@ -1695,7 +1775,7 @@ main_loop() {
         adjust_scroll
         render_main
         read_key
-        (( RESIZED )) && { compute_layout; RESIZED=0; STATUS_MSG=""; dead=0; continue; }
+        (( RESIZED )) && { compute_layout; RESIZED=0; STATUS_MSG=""; STATUS_KIND="info"; dead=0; continue; }
         if [[ $KEY == "NONE" ]]; then
             # entree standard perdue (terminal ferme) : on evite la boucle folle
             dead=$(( dead + 1 ))
@@ -1704,6 +1784,7 @@ main_loop() {
         fi
         dead=0
         STATUS_MSG=""
+        STATUS_KIND="info"
         idx=${VR_IDX[$SEL]:--1}
         case $KEY in
             UP|"CHAR:k")   move_sel -1 ;;
@@ -1756,6 +1837,15 @@ Lancer l'installation ?"; then
                     edit_field "$idx"
                 fi
                 ;;
+            "CHAR:t"|"CHAR:T")
+                toggle_theme
+                if [[ $THEME == light ]]; then
+                    STATUS_MSG="Theme clair active (touche t pour revenir au theme sombre)."
+                else
+                    STATUS_MSG="Theme sombre active (touche t pour passer au theme clair)."
+                fi
+                STATUS_KIND="ok"
+                ;;
             "CHAR:r"|"CHAR:R")
                 STATUS_MSG="Actualisation des informations machine..."
                 STATUS_KIND="info"
@@ -1787,6 +1877,11 @@ main() {
 
     compute_layout
     tui_start
+
+    # la couleur de fond est demandee une fois l'ecran alternatif actif :
+    # une eventuelle reponse non consommee reste invisible pour l'utilisateur
+    detect_theme
+    setup_colors
 
     collect_machine_info
     VAL[domain]="$MI_IP"
