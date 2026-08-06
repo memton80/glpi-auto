@@ -40,14 +40,16 @@ Ce projet contient un script Bash (`install-glpi-https.sh`) permettant d'install
 This project contains a Bash script (`install-glpi-https.sh`) to automatically and **securely** install **GLPI** on a Debian 12 server, including **Apache**, **MariaDB**, **PHP 8.2**, and a **self-signed SSL certificate**.
 
 **Caractéristiques principales / Main features:**
+- Interface console dédiée, sans dépendance à `whiptail` ou `dialog`
 - Installation automatique de GLPI (dernière version stable depuis GitHub)
 - Détection et téléchargement automatique de la dernière version
-- Barre de progression réaliste pour chaque étape
+- Barre de progression réelle, alimentée par apt et wget
 
 **Main features:**
+- Custom console interface, no `whiptail` or `dialog` dependency
 - Automatic installation of GLPI (latest stable version from GitHub)
 - Automatic detection and download of the latest version
-- Real-time progress bars for each step
+- Real progress bars, driven by actual apt and wget output
 
 ### Stack technique / Technical Stack
 
@@ -85,12 +87,20 @@ Configuration optimisée pour la production / Production-optimized configuration
 **Logs sécurisés / Secure logs:**
 - Mots de passe masqués dans `/var/log/glpi-install.log`
 
-### Interface multilingue / Multilingual Interface
+### Interface console / Console Interface
 
-- Français
-- English
-- Système de traduction propre et extensible / Clean and extensible translation system
-- Tous les messages et dialogues traduits / All messages and dialogs translated
+L'interface est écrite entièrement en Bash (aucun `whiptail`, aucun `dialog`).
+
+The interface is written entirely in Bash (no `whiptail`, no `dialog`).
+
+- **Panneau Machine** en haut à droite : nom d'hôte, adresse IP, système, état du
+  pare-feu et disponibilité des ports 80 et 443, actualisables avec la touche `r`
+- **Panneau Configuration** : tous les paramètres regroupés dans des sections
+  dépliables (base de données, sécurité, web/HTTPS, options)
+- **Bouton INSTALLER** en bas, actif une fois la configuration validée
+- **Écrans d'installation** : Tux animé au-dessus d'une barre de progression, la
+  sortie des commandes étant redirigée vers le journal plutôt qu'à l'écran
+- Interface en français uniquement / French interface only
 
 ### Configuration SSL / SSL Configuration
 
@@ -100,7 +110,7 @@ Configuration optimisée pour la production / Production-optimized configuration
 
 ### Accès distant MariaDB / Remote MariaDB Access
 
-- Avertissement de sécurité bilingue / Bilingual security warning
+- Option désactivée par défaut, aide de sécurité affichée dans le formulaire
 - Choix entre local (127.0.0.1) ou réseau (0.0.0.0)
 - Instructions pour modification ultérieure / Instructions for later modification
 
@@ -137,6 +147,13 @@ Configuration optimisée pour la production / Production-optimized configuration
 **Réseau / Network:**
 - Un **nom de domaine** ou **adresse IP** / A **domain name** or **IP address**
 - Ports **80 (HTTP)** et **443 (HTTPS)** disponibles / Available ports 80 and 443
+
+**Terminal:**
+- Une **console interactive** d'au moins **74x20** caractères / An **interactive
+  terminal** of at least **74x20** characters
+- Un terminal compatible **UTF-8** pour l'affichage des cadres (repli automatique
+  en ASCII sinon) / A **UTF-8** capable terminal for the box drawing (automatic
+  ASCII fallback otherwise)
 
 > [!NOTE]
 > **Pour les machines virtuelles / For virtual machines:**
@@ -183,28 +200,46 @@ sudo ./install-glpi-https.sh
 
 ## Étapes d'installation / Installation Steps
 
-Le script vous guidera interactivement à travers les étapes suivantes:
+Toute la configuration se fait sur un seul écran, avant que la moindre
+modification ne soit appliquée au système.
 
-The script will guide you interactively through the following steps:
+Everything is configured on a single screen, before any change is applied to
+the system.
 
-1. **Choix de la langue** / **Language selection** (Français/English)
-2. **Confirmation** de l'installation / Installation **confirmation**
-3. **Installation des dépendances** / **Dependencies installation** (Apache, MariaDB, PHP 8.2)
-4. **Configuration de la base de données** / **Database configuration**:
-   - Nom de la base / Database name
-   - Utilisateur MySQL / MySQL user
-   - Mot de passe (auto ou manuel) / Password (auto or manual)
-5. **Sécurisation de MariaDB** / **MariaDB hardening**:
-   - Définition du mot de passe root / Root password setup
-   - Nettoyage des utilisateurs par défaut / Default users cleanup
-6. **Choix accès distant MariaDB** / **Remote MariaDB access choice**
-7. **Téléchargement de GLPI** / **GLPI download** (dernière version / latest version)
-8. **Configuration SSL** / **SSL configuration**:
-   - Domaine ou IP / Domain or IP
-   - Durée du certificat / Certificate validity
-9. **Configuration pare-feu (optionnel)** / **Firewall setup (optional)**
-10. **Tests de vérification (optionnel)** / **Verification tests (optional)**
-11. **Génération du script de désinstallation** / **Uninstall script generation**
+### 1. Écran de configuration / Configuration screen
+
+Naviguez avec les flèches, `Entrée` pour modifier un champ, `Espace` pour basculer
+un `oui`/`non`, `Gauche`/`Droite` pour plier ou déplier une section, `r` pour
+actualiser les informations machine et `q` pour quitter.
+
+| Section | Paramètres / Settings |
+|---|---|
+| Base de données | nom de la base, utilisateur MySQL, mot de passe (généré ou saisi) |
+| Sécurité | mot de passe root MariaDB, accès distant MariaDB, pare-feu UFW |
+| Web et HTTPS | domaine ou IP, certificat auto-signé, durée du certificat |
+| Options | script de désinstallation, tests de vérification |
+
+Les valeurs sont validées à la saisie (anti-injection SQL, longueur des mots de
+passe, double saisie de confirmation) puis une nouvelle fois avant l'installation.
+
+### 2. Téléchargement / Download
+
+Écran avec Tux qui avance au rythme de la progression réelle:
+mise à jour des listes de paquets, Apache et MariaDB, PHP et ses extensions,
+utilitaires, puis l'archive GLPI (dernière version détectée sur GitHub).
+
+### 3. Installation
+
+Écran avec Tux animé et la mention **INSTALLATION EN COURS**:
+extraction de l'archive, création de la base et de l'utilisateur, sécurisation de
+MariaDB, écoute réseau, permissions et répertoires protégés, vhosts Apache et
+certificat, configuration PHP, `.htaccess`, pare-feu UFW, script de
+désinstallation.
+
+### 4. Récapitulatif / Summary
+
+URL d'accès, identifiants de la base, emplacement des credentials root, résultat
+des tests de vérification et chemin du journal complet.
 
 ---
 
@@ -377,15 +412,15 @@ glpi-auto/
 
 ## Roadmap / To-Do List
 
-- [x] Prise en charge bilingue FR/EN / Bilingual FR/EN support
+- [x] Interface console maison, sans whiptail / Custom console interface, no whiptail
 - [x] Script de désinstallation automatique / Automatic uninstall script
 - [x] Sécurisation complète de MariaDB / Complete MariaDB hardening
 - [x] Protection des répertoires sensibles / Sensitive directories protection
 - [x] Support du pare-feu UFW / UFW firewall support
-- [x] Barres de progression réalistes / Real-time progress bars
+- [x] Barres de progression réelles / Real progress bars
 - [x] Validation des entrées / Input validation
 - [x] Gestion sécurisée des credentials / Secure credentials management
-- [ ] Support multi-langue (ES, DE, IT) / Multi-language support
+- [ ] Support multi-langue / Multi-language support (interface actuellement en français)
 - [ ] Support de Debian 13 / Debian 13 support
 - [ ] Support Ubuntu 24.04 LTS / Ubuntu 24.04 LTS support
 - [ ] Mise à jour automatique de GLPI / Automatic GLPI updates
