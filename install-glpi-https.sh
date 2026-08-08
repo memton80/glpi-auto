@@ -14,7 +14,7 @@
 set -o pipefail
 
 #------------------------------------------------------------------ constantes
-SCRIPT_VERSION="2.3"
+SCRIPT_VERSION="2.4"
 LOGFILE="/var/log/glpi-install.log"
 STEP_LOG="/tmp/glpi-step.log"
 APT_STATUS="/tmp/glpi-apt-status.log"
@@ -326,11 +326,15 @@ load_strings() {
         L_F_DOMAIN="Server domain or IP"
         L_H_DOMAIN="Used for the certificate and the final URL."
         L_F_SSL="Self-signed certificate"
-        L_H_SSL="Creates a self-signed HTTPS certificate for the domain."
+        L_H_SSL="Self-signed HTTPS certificate, plain HTTP redirected to it."
         L_F_SSLDAYS="Certificate validity (days)"
         L_H_SSLDAYS="Number of days the certificate stays valid (1 to 3650)."
         L_F_UNINSTALL="Uninstall script"
         L_H_UNINSTALL="Generates ./uninstall-glpi.sh, with its own interface."
+        L_F_CRON="Automatic actions (cron)"
+        L_H_CRON="Runs the GLPI automatic actions every minute from the system cron."
+        L_F_TZ="Database time zones"
+        L_H_TZ="Loads the time zones into MariaDB, required by GLPI."
         L_F_TESTS="Verification tests"
         L_H_TESTS="Checks Apache, MariaDB and the GLPI directory."
 
@@ -422,11 +426,15 @@ load_strings() {
         L_S_MOVE="Setting up the files"
         L_S_CREATE_DB="Creating the database"
         L_S_SECURE_DB="Hardening MariaDB"
+        L_S_TZ="Loading the database time zones"
+        L_S_TZ_SKIP="Time zones skipped"
         L_S_BIND_DB="Configuring the MariaDB listener"
         L_S_PERMS="Permissions and protected directories"
         L_S_APACHE="Configuring Apache and the certificate"
         L_S_PHP="Configuring PHP"
         L_S_HTACCESS="Protecting sensitive directories"
+        L_S_CRON="Setting up the automatic actions"
+        L_S_CRON_SKIP="Automatic actions skipped"
         L_S_FIREWALL="Configuring the UFW firewall"
         L_S_FIREWALL_SKIP="Firewall skipped"
         L_S_UNINSTALL="Generating the uninstall script"
@@ -448,11 +456,13 @@ load_strings() {
         L_E_ROOT_DENIED_3="Type that password in the 'MariaDB root password' field,"
         L_E_ROOT_DENIED_4="or remove MariaDB with the uninstall script, then retry."
         L_E_SECURE_DB="Hardening MariaDB failed."
+        L_E_TZ="Loading the time zones into MariaDB failed."
         L_E_BIND_DB="Restarting MariaDB failed."
         L_E_PERMS="Applying the permissions failed."
         L_E_APACHE="Configuring Apache failed."
         L_E_PHP="Configuring PHP failed."
         L_E_HTACCESS="Writing the .htaccess files failed."
+        L_E_CRON="Setting up the GLPI cron failed."
         L_E_FIREWALL="Configuring the firewall failed."
         L_E_UNINSTALL="Generating the uninstall script failed."
 
@@ -472,6 +482,8 @@ load_strings() {
         L_TEST_MDB_DOWN="MariaDB: stopped"
         L_TEST_DIR_OK="GLPI directory: present"
         L_TEST_DIR_KO="GLPI directory: missing"
+        L_TEST_CRON_OK="Automatic actions: cron active"
+        L_TEST_CRON_KO="Automatic actions: cron missing"
         L_FINAL_T="GLPI - INSTALLATION COMPLETE"
         L_FINAL_DONE="Installation complete."
         L_FINAL_URL="GLPI address"
@@ -556,11 +568,15 @@ load_strings() {
         L_F_DOMAIN="Domaine ou IP du serveur"
         L_H_DOMAIN="Utilise pour le certificat et l'URL finale."
         L_F_SSL="Certificat auto-signe"
-        L_H_SSL="Cree un certificat HTTPS auto-signe pour le domaine."
+        L_H_SSL="Certificat HTTPS auto-signe, le HTTP simple y est redirige."
         L_F_SSLDAYS="Duree du certificat (j)"
         L_H_SSLDAYS="Nombre de jours de validite (1 a 3650)."
         L_F_UNINSTALL="Script de desinstallation"
         L_H_UNINSTALL="Genere ./uninstall-glpi.sh, avec sa propre interface."
+        L_F_CRON="Actions automatiques (cron)"
+        L_H_CRON="Execute les actions automatiques de GLPI chaque minute via le cron."
+        L_F_TZ="Fuseaux horaires de la base"
+        L_H_TZ="Charge les fuseaux horaires dans MariaDB, requis par GLPI."
         L_F_TESTS="Tests de verification"
         L_H_TESTS="Verifie Apache, MariaDB et le repertoire GLPI."
 
@@ -652,11 +668,15 @@ load_strings() {
         L_S_MOVE="Mise en place des fichiers"
         L_S_CREATE_DB="Creation de la base de donnees"
         L_S_SECURE_DB="Securisation de MariaDB"
+        L_S_TZ="Chargement des fuseaux horaires"
+        L_S_TZ_SKIP="Fuseaux horaires ignores"
         L_S_BIND_DB="Configuration de l'ecoute MariaDB"
         L_S_PERMS="Permissions et repertoires proteges"
         L_S_APACHE="Configuration d'Apache et du certificat"
         L_S_PHP="Configuration de PHP"
         L_S_HTACCESS="Protection des repertoires sensibles"
+        L_S_CRON="Mise en place des actions automatiques"
+        L_S_CRON_SKIP="Actions automatiques ignorees"
         L_S_FIREWALL="Configuration du pare-feu UFW"
         L_S_FIREWALL_SKIP="Pare-feu ignore"
         L_S_UNINSTALL="Generation du script de desinstallation"
@@ -678,11 +698,13 @@ load_strings() {
         L_E_ROOT_DENIED_3="Saisissez-le dans le champ 'Mot de passe root MariaDB',"
         L_E_ROOT_DENIED_4="ou supprimez MariaDB avec le script de desinstallation."
         L_E_SECURE_DB="La securisation de MariaDB a echoue."
+        L_E_TZ="Le chargement des fuseaux horaires dans MariaDB a echoue."
         L_E_BIND_DB="Le redemarrage de MariaDB a echoue."
         L_E_PERMS="L'application des permissions a echoue."
         L_E_APACHE="La configuration d'Apache a echoue."
         L_E_PHP="La configuration de PHP a echoue."
         L_E_HTACCESS="L'ecriture des fichiers .htaccess a echoue."
+        L_E_CRON="La mise en place du cron GLPI a echoue."
         L_E_FIREWALL="La configuration du pare-feu a echoue."
         L_E_UNINSTALL="La generation du script de desinstallation a echoue."
 
@@ -702,6 +724,8 @@ load_strings() {
         L_TEST_MDB_DOWN="MariaDB : arrete"
         L_TEST_DIR_OK="Repertoire GLPI : present"
         L_TEST_DIR_KO="Repertoire GLPI : absent"
+        L_TEST_CRON_OK="Actions automatiques : cron actif"
+        L_TEST_CRON_KO="Actions automatiques : cron absent"
         L_FINAL_T="GLPI - INSTALLATION TERMINEE"
         L_FINAL_DONE="Installation terminee."
         L_FINAL_URL="Acces GLPI"
@@ -1144,6 +1168,8 @@ build_form() {
     add_field ssl_days "$L_F_SSLDAYS" num  "365"      "$L_H_SSLDAYS" "ssl=oui"
 
     add_section "$L_SEC_OPTIONS"
+    add_field cron        "$L_F_CRON"      bool "oui" "$L_H_CRON"
+    add_field db_tz       "$L_F_TZ"        bool "oui" "$L_H_TZ"
     add_field uninstaller "$L_F_UNINSTALL" bool "oui" "$L_H_UNINSTALL"
     add_field tests       "$L_F_TESTS"     bool "oui" "$L_H_TESTS"
 }
@@ -2278,6 +2304,45 @@ CRED
     return 0
 }
 
+# GLPI a besoin des fuseaux horaires dans MariaDB, sans quoi la liste des
+# fuseaux reste vide dans les preferences et l'assistant affiche un
+# avertissement. Les tables sont peuplees a partir de /usr/share/zoneinfo puis
+# l'utilisateur GLPI recoit le droit de lecture sur mysql.time_zone_name.
+do_db_timezones() {
+    local sql="/tmp/.glpi-tz.sql" conv="" c rc
+    find_mysql_admin || return 1
+
+    for c in mariadb-tzinfo-to-sql mysql_tzinfo_to_sql; do
+        if command -v "$c" >/dev/null 2>&1; then conv=$c; break; fi
+    done
+    if [[ -z $conv || ! -d /usr/share/zoneinfo ]]; then
+        printf 'Convertisseur de fuseaux ou /usr/share/zoneinfo absent, etape ignoree.\n'
+        return 0
+    fi
+    printf 'Convertisseur : %s\n' "$conv"
+
+    # les avertissements sur leap-seconds.list et tzdata.zi ne sont pas des
+    # erreurs : ces fichiers ne decrivent pas des fuseaux
+    ( umask 077; "$conv" /usr/share/zoneinfo >"$sql" 2>/dev/null )
+    if [[ ! -s $sql ]]; then
+        rm -f "$sql"
+        printf 'Aucune donnee de fuseau produite, etape ignoree.\n'
+        return 0
+    fi
+
+    mysql_admin mysql <"$sql"; rc=$?
+    rm -f "$sql"
+    (( rc != 0 )) && return $rc
+
+    mysql_admin -e "
+GRANT SELECT ON \`mysql\`.\`time_zone_name\` TO '$DB_USER'@'localhost';
+GRANT SELECT ON \`mysql\`.\`time_zone_name\` TO '$DB_USER'@'%';
+FLUSH PRIVILEGES;" || return 1
+
+    printf 'Fuseaux horaires charges, lecture accordee a %s.\n' "$DB_USER"
+    return 0
+}
+
 do_bind_mariadb() {
     local cnf="/etc/mysql/mariadb.conf.d/50-server.cnf" addr="127.0.0.1"
     [[ $DB_REMOTE == oui ]] && addr="0.0.0.0"
@@ -2314,7 +2379,22 @@ do_permissions() {
 }
 
 do_apache_vhost() {
-    cat >/etc/apache2/sites-available/glpi.conf <<CONF
+    if [[ $SSL_ON == oui ]]; then
+        # Le site est servi en HTTPS : le vhost en clair ne sert plus qu'a
+        # renvoyer vers lui, sans quoi on pourrait saisir son mot de passe sur
+        # le port 80 alors que session.cookie_secure interdit le cookie.
+        # Redirection temporaire volontairement : une 301 resterait en cache du
+        # navigateur apres une reinstallation sans certificat.
+        cat >/etc/apache2/sites-available/glpi.conf <<CONF
+<VirtualHost *:80>
+    ServerName $DOMAIN
+    Redirect temp / https://$DOMAIN/
+    ErrorLog \${APACHE_LOG_DIR}/glpi-error.log
+    CustomLog \${APACHE_LOG_DIR}/glpi-access.log combined
+</VirtualHost>
+CONF
+    else
+        cat >/etc/apache2/sites-available/glpi.conf <<CONF
 <VirtualHost *:80>
     ServerName $DOMAIN
     DocumentRoot $GLPI_DIR/public
@@ -2327,6 +2407,7 @@ do_apache_vhost() {
     CustomLog \${APACHE_LOG_DIR}/glpi-access.log combined
 </VirtualHost>
 CONF
+    fi
 
     if [[ $SSL_ON == oui ]]; then
         mkdir -p "$SSL_DIR"
@@ -2372,6 +2453,14 @@ do_php_config() {
     [[ $SSL_ON == oui ]] && secure="On"
     printf 'session.cookie_secure = %s (HTTPS : %s)\n' "$secure" "$SSL_ON"
 
+    # GLPI horodate ses tickets et ses actions automatiques : sans
+    # date.timezone, PHP retombe sur UTC et les heures affichees decalent.
+    local tz=""
+    [[ -r /etc/timezone ]] && tz=$(cat /etc/timezone 2>/dev/null)
+    [[ -z $tz ]] && tz=$(timedatectl show -p Timezone --value 2>/dev/null)
+    [[ -z $tz ]] && tz="UTC"
+    printf 'date.timezone = %s\n' "$tz"
+
     for ini in /etc/php/*/apache2/php.ini; do
         [[ -f $ini ]] || continue
         # copie d'origine : le script de desinstallation la remet en place
@@ -2384,6 +2473,8 @@ do_php_config() {
         sed -i "s/^;*[[:space:]]*memory_limit[[:space:]]*=.*/memory_limit = 256M/" "$ini"
         sed -i "s/^;*[[:space:]]*max_execution_time[[:space:]]*=.*/max_execution_time = 600/" "$ini"
         sed -i "s/^;*[[:space:]]*session.cookie_samesite[[:space:]]*=.*/session.cookie_samesite = Lax/" "$ini"
+        # le nom de fuseau contient une barre oblique : autre delimiteur sed
+        sed -i "s#^;*[[:space:]]*date.timezone[[:space:]]*=.*#date.timezone = $tz#" "$ini"
     done
     systemctl reload apache2 || systemctl restart apache2
 }
@@ -2407,6 +2498,32 @@ HTA
         [[ -d $d ]] || continue
         printf 'Require all denied\n' >"$d/.htaccess"
     done
+    return 0
+}
+
+# Sans cron systeme, GLPI execute ses actions automatiques en "mode GLPI",
+# c'est a dire au fil des visites de pages : rien ne tourne tant que personne
+# ne se connecte. On installe donc la tache en mode CLI, sous www-data pour ne
+# pas abimer les permissions des fichiers (front/cron.php refuse root).
+do_cron() {
+    local php
+    php=$(command -v php) || return 1
+    [[ -d /etc/cron.d ]] || return 1
+
+    # le nom du fichier ne doit pas comporter de point, sinon run-parts l'ignore
+    cat >/etc/cron.d/glpi <<CRON
+# Actions automatiques de GLPI - genere par install-glpi-https.sh v$SCRIPT_VERSION
+# Supprimer ce fichier suffit a revenir au declenchement par les pages web.
+MAILTO=""
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+* * * * * www-data $php $GLPI_DIR/front/cron.php >/dev/null 2>&1
+CRON
+    chown root:root /etc/cron.d/glpi
+    chmod 644 /etc/cron.d/glpi
+
+    # cron relit /etc/cron.d tout seul, mais un rechargement evite d'attendre
+    systemctl reload cron 2>/dev/null || systemctl restart cron 2>/dev/null
+    printf 'Tache cron installee : /etc/cron.d/glpi (%s)\n' "$php"
     return 0
 }
 
@@ -4919,7 +5036,7 @@ run_install() {
         || fatal "$L_E_APT_PHP"
 
     step_run "$L_S_APT_TOOLS" 70 78 probe_apt \
-        do_apt_install unzip wget tar curl openssl ca-certificates \
+        do_apt_install unzip wget tar curl openssl ca-certificates cron \
         || fatal "$L_E_APT_TOOLS"
 
     step_run "$L_S_FETCH" 78 82 - \
@@ -4954,40 +5071,58 @@ run_install() {
         do_move_glpi \
         || fatal "$L_E_MOVE"
 
-    step_run "$L_S_CREATE_DB" 20 30 - \
+    step_run "$L_S_CREATE_DB" 20 28 - \
         do_create_db \
         || fatal "$L_E_CREATE_DB"
 
-    step_run "$L_S_SECURE_DB" 30 40 - \
+    step_run "$L_S_SECURE_DB" 28 36 - \
         do_secure_mariadb \
         || fatal "$L_E_SECURE_DB"
 
-    step_run "$L_S_BIND_DB" 40 48 - \
+    # avant l'etape d'ecoute : c'est elle qui redemarre MariaDB, et le serveur
+    # doit repartir une fois les tables de fuseaux peuplees
+    if [[ ${VAL[db_tz]} == oui ]]; then
+        step_run "$L_S_TZ" 36 44 - \
+            do_db_timezones \
+            || fatal "$L_E_TZ"
+    else
+        PCT=44; STEP_LABEL="$L_S_TZ_SKIP"; anim_tick
+    fi
+
+    step_run "$L_S_BIND_DB" 44 50 - \
         do_bind_mariadb \
         || fatal "$L_E_BIND_DB"
 
-    step_run "$L_S_PERMS" 48 58 - \
+    step_run "$L_S_PERMS" 50 58 - \
         do_permissions \
         || fatal "$L_E_PERMS"
 
-    step_run "$L_S_APACHE" 58 72 - \
+    step_run "$L_S_APACHE" 58 70 - \
         do_apache_vhost \
         || fatal "$L_E_APACHE"
 
-    step_run "$L_S_PHP" 72 78 - \
+    step_run "$L_S_PHP" 70 76 - \
         do_php_config \
         || fatal "$L_E_PHP"
 
-    step_run "$L_S_HTACCESS" 78 84 - \
+    step_run "$L_S_HTACCESS" 76 80 - \
         do_htaccess \
         || fatal "$L_E_HTACCESS"
 
+    if [[ ${VAL[cron]} == oui ]]; then
+        step_run "$L_S_CRON" 80 84 - \
+            do_cron \
+            || fatal "$L_E_CRON"
+    else
+        PCT=84; STEP_LABEL="$L_S_CRON_SKIP"; anim_tick
+    fi
+
     if [[ ${VAL[firewall]} == oui ]]; then
-        step_run "$L_S_FIREWALL" 84 92 - \
+        step_run "$L_S_FIREWALL" 84 90 - \
             do_firewall \
             || fatal "$L_E_FIREWALL"
     else
-        PCT=92; STEP_LABEL="$L_S_FIREWALL_SKIP"; anim_tick
+        PCT=90; STEP_LABEL="$L_S_FIREWALL_SKIP"; anim_tick
     fi
 
     if [[ ${VAL[uninstaller]} == oui ]]; then
@@ -4995,7 +5130,7 @@ run_install() {
         # depuis / par exemple) : on se rabat sur /root
         UNINSTALL_PATH="./uninstall-glpi.sh"
         [[ -w . ]] || UNINSTALL_PATH="/root/uninstall-glpi.sh"
-        step_run "$L_S_UNINSTALL" 92 96 - \
+        step_run "$L_S_UNINSTALL" 90 96 - \
             do_uninstaller \
             || fatal "$L_E_UNINSTALL"
     fi
@@ -5016,9 +5151,17 @@ run_tests() {
     TEST_APACHE="$L_TEST_APACHE_DOWN"
     TEST_MDB="$L_TEST_MDB_DOWN"
     TEST_DIR="$L_TEST_DIR_KO"
+    TEST_CRON=""
     systemctl is-active --quiet apache2 && TEST_APACHE="$L_TEST_APACHE_UP"
     systemctl is-active --quiet mariadb && TEST_MDB="$L_TEST_MDB_UP"
     [[ -d $GLPI_DIR ]] && TEST_DIR="$L_TEST_DIR_OK"
+    if [[ ${VAL[cron]} == oui ]]; then
+        if [[ -f /etc/cron.d/glpi ]] && systemctl is-active --quiet cron; then
+            TEST_CRON="$L_TEST_CRON_OK"
+        else
+            TEST_CRON="$L_TEST_CRON_KO"
+        fi
+    fi
 }
 
 final_screen() {
@@ -5035,6 +5178,8 @@ $L_TEST_HEAD
   $TEST_APACHE
   $TEST_MDB
   $TEST_DIR"
+        [[ -n $TEST_CRON ]] && tests="$tests
+  $TEST_CRON"
     fi
 
     local uninst=""
@@ -5131,7 +5276,7 @@ check_internet() {
 
 cleanup() {
     tui_stop
-    rm -f "$STEP_LOG" "$APT_STATUS" /tmp/glpi-url.txt /tmp/.glpi-db.sql /tmp/.glpi-sec.sql "$MYSQL_TRY_CRED" 2>/dev/null
+    rm -f "$STEP_LOG" "$APT_STATUS" /tmp/glpi-url.txt /tmp/.glpi-db.sql /tmp/.glpi-sec.sql /tmp/.glpi-tz.sql "$MYSQL_TRY_CRED" 2>/dev/null
 }
 
 main_loop() {

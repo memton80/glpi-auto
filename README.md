@@ -44,6 +44,8 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically a
 - Installation automatique de GLPI (dernière version stable depuis GitHub)
 - Détection et téléchargement automatique de la dernière version
 - Barre de progression réelle, alimentée par apt et wget
+- Actions automatiques GLPI posées dans le cron système (mode CLI)
+- Fuseaux horaires chargés dans MariaDB, requis par GLPI
 - En cas d'échec (coupure réseau, paquet manquant...), Tux s'effondre à l'écran
   et la fenêtre d'erreur indique l'étape fautive et les dernières lignes du log
 
@@ -52,6 +54,8 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically a
 - Automatic installation of GLPI (latest stable version from GitHub)
 - Automatic detection and download of the latest version
 - Real progress bars, driven by actual apt and wget output
+- GLPI automatic actions installed as a system cron job (CLI mode)
+- Time zones loaded into MariaDB, as required by GLPI
 - On failure (network drop, missing package...), Tux collapses on screen and the
   error window reports the failing step and the last lines of the log
 
@@ -130,6 +134,52 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 - Certificat HTTPS auto-signé / Self-signed HTTPS certificate
 - Durée personnalisable / Customizable validity period
 - Support domaine ou IP / Domain or IP support
+- Le vhost du port 80 redirige vers HTTPS, on ne peut plus s'authentifier en
+  clair / The port 80 vhost redirects to HTTPS, so credentials cannot be sent
+  in the clear
+
+La redirection est temporaire (302) et non permanente (301) : une 301 resterait
+dans le cache du navigateur et casserait l'accès si le serveur était réinstallé
+plus tard sans certificat.
+
+The redirect is temporary (302) rather than permanent (301): a 301 would stay in
+the browser cache and break access if the server were later reinstalled without a
+certificate.
+
+### Actions automatiques / Automatic Actions
+
+Le script écrit `/etc/cron.d/glpi`, qui exécute les actions automatiques de GLPI
+chaque minute sous l'utilisateur `www-data` :
+
+The script writes `/etc/cron.d/glpi`, which runs the GLPI automatic actions every
+minute as the `www-data` user:
+
+```cron
+* * * * * www-data /usr/bin/php /var/www/html/glpi/front/cron.php >/dev/null 2>&1
+```
+
+Sans cette tâche, GLPI n'exécute ses actions (notifications, purges, synchro
+LDAP, collecteur) qu'au fil des visites de pages : rien ne tourne tant que
+personne ne se connecte. Supprimer le fichier suffit à revenir à ce
+comportement. L'option est décochable dans le formulaire.
+
+Without this job, GLPI only runs its actions (notifications, purges, LDAP sync,
+mail collector) as pages are visited, so nothing happens while nobody is logged
+in. Deleting the file is enough to go back to that behaviour. The option can be
+unchecked in the form.
+
+### Fuseaux horaires / Time Zones
+
+GLPI a besoin des tables de fuseaux horaires dans MariaDB, sinon la liste reste
+vide dans les préférences et l'assistant affiche un avertissement. Le script les
+charge depuis `/usr/share/zoneinfo` et accorde la lecture de
+`mysql.time_zone_name` à l'utilisateur GLPI. Il pose aussi `date.timezone` dans
+`php.ini` à partir du fuseau du système.
+
+GLPI needs the time zone tables in MariaDB, otherwise the list stays empty in the
+preferences and the setup wizard shows a warning. The script loads them from
+`/usr/share/zoneinfo` and grants read access on `mysql.time_zone_name` to the
+GLPI user. It also sets `date.timezone` in `php.ini` from the system time zone.
 
 ### Accès distant MariaDB / Remote MariaDB Access
 
@@ -142,6 +192,7 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 - Vérification du statut Apache / Apache status check
 - Vérification du statut MariaDB / MariaDB status check
 - Vérification de l'installation GLPI / GLPI installation check
+- Vérification de la tâche cron / Cron job check
 
 ### Désinstallation automatique / Automatic Uninstallation
 
@@ -535,7 +586,7 @@ glpi-auto/
 | **Directory protection** | `/files`, `/config`, `/install` protected by .htaccess |
 | **Input validation** | Regex validation for DB names and users |
 | **Firewall (optional)** | UFW with strict rules (22, 80, 443 only) |
-| **SSL/TLS** | Self-signed certificate with configurable validity |
+| **SSL/TLS** | Self-signed certificate with configurable validity, plain HTTP redirected to HTTPS |
 | **Secure logging** | Passwords masked in logs |
 | **Session security** | HTTP-only cookies, SameSite=Lax, and `session.cookie_secure` enabled when the site is served over HTTPS |
 
