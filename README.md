@@ -131,9 +131,23 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 
 ### Désinstallation automatique / Automatic Uninstallation
 
-- Script de désinstallation complet généré automatiquement
-- Suppression propre de tous les composants / Clean removal of all components
-- Utilisation sécurisée des credentials MySQL / Secure use of MySQL credentials
+- Script `uninstall-glpi.sh` généré automatiquement, avec **sa propre interface
+  console** (mêmes panneaux, même Tux, même barre de progression que
+  l'installateur)
+- Chaque élément à supprimer est cochable : fichiers, base, configuration
+  Apache, tâches cron, paquets Apache / PHP / MariaDB, règles UFW
+- **Libère les ports 80 et 443** pour qu'une réinstallation reparte sur une
+  machine propre
+- Récapitulatif final vérifié : ce qui a réellement disparu, ce qui reste
+- Mode texte pour les scripts : `-y`, `--all`, `--keep-packages`
+
+- Auto-generated `uninstall-glpi.sh` with **its own console interface** (same
+  panels, same Tux, same progress bar as the installer)
+- Every item is a checkbox: files, database, Apache configuration, cron jobs,
+  Apache / PHP / MariaDB packages, UFW rules
+- **Frees ports 80 and 443** so a reinstall starts from a clean machine
+- Verified final report: what is really gone, what is left
+- Text mode for scripting: `-y`, `--all`, `--keep-packages`
 
 ---
 
@@ -325,23 +339,63 @@ Le script affichera / The script will display:
 
 ## Désinstallation / Uninstallation
 
-Pour supprimer GLPI et tous ses composants:
+Le script `uninstall-glpi.sh` est généré à la fin de l'installation (option
+**Script de désinstallation**). Il possède la même interface console que
+l'installateur : panneau d'état à droite, liste des éléments à supprimer à
+gauche, bouton **DÉSINSTALLER**, écran de suppression avec Tux et barre de
+progression, puis récapitulatif vérifié.
 
-To remove GLPI and all its components:
+`uninstall-glpi.sh` is generated at the end of the installation (option
+**Uninstall script**). It ships the same console interface as the installer:
+state panel on the right, list of removable items on the left, **UNINSTALL**
+button, removal screen with Tux and a progress bar, then a verified report.
 
 ```bash
-./uninstall-glpi.sh
+sudo ./uninstall-glpi.sh
 ```
 
-Le script supprimera automatiquement:
+### Ce que le script sait supprimer / What the script can remove
 
-The script will automatically remove:
+| Élément / Item | Détail / Detail |
+|----------------|-----------------|
+| Fichiers et données | `/var/www/html/glpi`, `/var/lib/glpi`, archive téléchargée, fichiers temporaires |
+| Base de données | Base GLPI, utilisateurs `@localhost` et `@%` |
+| Configuration Apache | `glpi.conf`, `glpi-ssl.conf`, liens `sites-enabled`, certificat `/etc/ssl/glpi`, journaux `glpi-*.log`, réactivation de `000-default` |
+| Tâches planifiées | `/etc/cron.d/glpi*` et les entrées GLPI des crontabs `root` et `www-data` |
+| Paquets | Apache, PHP et ses extensions, MariaDB, puis `apt-get autoremove --purge` |
+| Configuration système | Restauration des `php.ini` et de `50-server.cnf` sauvegardés avant l'installation |
+| Pare-feu | Retrait des règles UFW 80 et 443 (le port 22 reste autorisé) |
+| Traces | `/root/.mysql_credentials`, `/var/log/glpi-install.log` |
 
-- Tous les fichiers GLPI (`/var/www/html/glpi`, `/var/lib/glpi`)
-- Les configurations Apache (`glpi.conf`, `glpi-ssl.conf`)
-- Les certificats SSL (`/etc/ssl/glpi`)
-- La base de données et l'utilisateur MySQL
-- Les sites Apache activés
+> [!IMPORTANT]
+> C'est la suppression des paquets Apache (ou l'option **Arrêter Apache et
+> MariaDB**) qui **libère les ports 80 et 443**. Sans elle, Apache continue de
+> tourner et une réinstallation signalera les ports comme occupés.
+>
+> Removing the Apache packages (or the **Stop Apache and MariaDB** option) is
+> what **frees ports 80 and 443**. Without it Apache keeps running and a
+> reinstall will report the ports as busy.
+
+Les cases **Supprimer Apache / PHP / MariaDB** sont décochées automatiquement
+si un autre site Apache ou une autre base de données est détecté sur la
+machine, afin de ne jamais casser un service voisin.
+
+The **Remove Apache / PHP / MariaDB** boxes are unchecked automatically when
+another Apache site or another database is detected, so a neighbouring service
+is never broken.
+
+### Mode texte / Text mode
+
+```bash
+sudo ./uninstall-glpi.sh -y                 # sans interface, options par défaut
+sudo ./uninstall-glpi.sh -y --all           # tout, paquets compris
+sudo ./uninstall-glpi.sh -y --keep-packages # garde Apache, PHP et MariaDB
+sudo ./uninstall-glpi.sh --help
+```
+
+Le journal complet est écrit dans `/var/log/glpi-uninstall.log`.
+
+The full log is written to `/var/log/glpi-uninstall.log`.
 
 ---
 
@@ -399,6 +453,21 @@ ufw disable
 ufw enable
 ```
 
+### Les ports 80 / 443 sont signalés occupés au lancement
+
+Un serveur web tourne déjà sur la machine, souvent un Apache laissé par une
+installation précédente. Vérifiez qui écoute, puis relancez la désinstallation
+en cochant **Supprimer Apache (paquets)** ou **Arrêter Apache et MariaDB**.
+
+A web server is already running, usually an Apache left over by a previous
+installation. Check who is listening, then run the uninstaller again with
+**Remove Apache (packages)** or **Stop Apache and MariaDB** ticked.
+
+```bash
+ss -lntp | grep -E ':80|:443'
+sudo ./uninstall-glpi.sh
+```
+
 ---
 
 ## Structure du projet / Project Structure
@@ -406,7 +475,8 @@ ufw enable
 ```
 glpi-auto/
 ├── install-glpi-https.sh    # Script d'installation principal / Main install script
-├── uninstall-glpi.sh        # Généré automatiquement / Auto-generated
+├── uninstall-glpi.sh        # Généré par l'installateur, interface incluse
+│                            # Generated by the installer, interface included
 ├── README.md                # Documentation
 ├── SECURITY.md              # Politique de sécurité / Security policy
 └── LICENSE                  # Licence GPL-3.0
