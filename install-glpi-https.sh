@@ -14,7 +14,7 @@
 set -o pipefail
 
 #------------------------------------------------------------------ constantes
-SCRIPT_VERSION="2.0"
+SCRIPT_VERSION="2.2"
 LOGFILE="/var/log/glpi-install.log"
 STEP_LOG="/tmp/glpi-step.log"
 APT_STATUS="/tmp/glpi-apt-status.log"
