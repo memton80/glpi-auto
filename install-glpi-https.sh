@@ -24,6 +24,7 @@ GLPI_DATA="/var/lib/glpi"
 GLPI_ARCHIVE="/tmp/glpi.tgz"
 SSL_DIR="/etc/ssl/glpi"
 MYSQL_CRED="/root/.mysql_credentials"
+MYSQL_TRY_CRED="/tmp/.glpi-try-cred"
 UNINSTALL_PATH="./uninstall-glpi.sh"
 GLPI_FALLBACK_URL="https://github.com/glpi-project/glpi/releases/download/11.0.0/glpi-11.0.0.tgz"
 
@@ -335,6 +336,8 @@ load_strings() {
         L_ERR_DAYS_NUM="Enter a number of days."
         L_ERR_DAYS_RANGE="The validity must be between 1 and 3650 days."
         L_FORM_INCOMPLETE_T="Incomplete configuration"
+        L_MYSQL_ROOT_T="MariaDB root access"
+        L_MYSQL_ROOT_BODY=$'MariaDB is already installed on this machine and its\nroot account is protected by a password that differs\nfrom the one you typed.\n\nType the existing root password, or remove MariaDB\nwith the uninstall script before starting again.'
 
         # confirmation et sortie
         L_CONFIRM_T="Confirmation"
@@ -409,6 +412,10 @@ load_strings() {
         L_E_EXTRACT="Extracting the GLPI archive failed."
         L_E_MOVE="The GLPI directory could not be created."
         L_E_CREATE_DB="Creating the database failed."
+        L_E_ROOT_DENIED_1="MariaDB refused the root connection."
+        L_E_ROOT_DENIED_2="A root password is already set on this machine."
+        L_E_ROOT_DENIED_3="Type that password in the 'MariaDB root password' field,"
+        L_E_ROOT_DENIED_4="or remove MariaDB with the uninstall script, then retry."
         L_E_SECURE_DB="Hardening MariaDB failed."
         L_E_BIND_DB="Restarting MariaDB failed."
         L_E_PERMS="Applying the permissions failed."
@@ -558,6 +565,8 @@ load_strings() {
         L_ERR_DAYS_NUM="Saisissez un nombre de jours."
         L_ERR_DAYS_RANGE="La duree doit etre comprise entre 1 et 3650 jours."
         L_FORM_INCOMPLETE_T="Configuration incomplete"
+        L_MYSQL_ROOT_T="Acces root MariaDB"
+        L_MYSQL_ROOT_BODY=$'MariaDB est deja installe sur cette machine et son compte\nroot est protege par un mot de passe different de celui\nque vous avez saisi.\n\nSaisissez le mot de passe root existant, ou supprimez\nMariaDB avec le script de desinstallation avant de\nrecommencer.'
 
         # confirmation et sortie
         L_CONFIRM_T="Confirmation"
@@ -632,6 +641,10 @@ load_strings() {
         L_E_EXTRACT="L'extraction de l'archive GLPI a echoue."
         L_E_MOVE="Le repertoire GLPI n'a pas pu etre cree."
         L_E_CREATE_DB="La creation de la base de donnees a echoue."
+        L_E_ROOT_DENIED_1="MariaDB a refuse la connexion root."
+        L_E_ROOT_DENIED_2="Un mot de passe root est deja defini sur cette machine."
+        L_E_ROOT_DENIED_3="Saisissez-le dans le champ 'Mot de passe root MariaDB',"
+        L_E_ROOT_DENIED_4="ou supprimez MariaDB avec le script de desinstallation."
         L_E_SECURE_DB="La securisation de MariaDB a echoue."
         L_E_BIND_DB="Le redemarrage de MariaDB a echoue."
         L_E_PERMS="L'application des permissions a echoue."
@@ -1629,6 +1642,23 @@ validate_form() {
     return 0
 }
 
+# Sur une machine qui a deja recu une installation, le compte root MariaDB est
+# protege : autant s'en apercevoir avant de telecharger quoi que ce soit.
+check_mysql_root() {
+    command -v mysql >/dev/null 2>&1 || return 0
+    systemctl is-active --quiet mariadb 2>/dev/null || \
+        systemctl is-active --quiet mysql 2>/dev/null || return 0
+    mysql -e 'SELECT 1' >/dev/null 2>&1 && return 0
+    [[ -r $MYSQL_CRED ]] && mysql --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1 && return 0
+    local pw=${VAL[root_pass]} rc=1
+    if [[ -n $pw ]]; then
+        ( umask 077; printf '[client]\nuser=root\npassword=%s\n' "$pw" >"$MYSQL_TRY_CRED" )
+        mysql --defaults-file="$MYSQL_TRY_CRED" -e 'SELECT 1' >/dev/null 2>&1 && rc=0
+        rm -f "$MYSQL_TRY_CRED"
+    fi
+    return $rc
+}
+
 select_field_row() {
     local key=$1 i idx
     build_rows
@@ -1955,8 +1985,38 @@ do_move_glpi() {
     [[ -d $GLPI_DIR ]]
 }
 
+# Une installation precedente a pu laisser un mot de passe root : la connexion
+# par socket ne suffit alors plus. On essaie dans l'ordre le socket root, le
+# fichier de credentials laisse par cette installation, puis le mot de passe
+# saisi dans le formulaire.
+declare -a MYSQL_ADMIN=()
+
+find_mysql_admin() {
+    MYSQL_ADMIN=()
+    command -v mysql >/dev/null 2>&1 || return 1
+    mysql -e 'SELECT 1' >/dev/null 2>&1 && return 0
+    if [[ -r $MYSQL_CRED ]] && mysql --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
+        MYSQL_ADMIN=(--defaults-file="$MYSQL_CRED")
+        return 0
+    fi
+    if [[ -n $ROOT_PASS ]]; then
+        ( umask 077; printf '[client]\nuser=root\npassword=%s\n' "$ROOT_PASS" >"$MYSQL_TRY_CRED" )
+        if mysql --defaults-file="$MYSQL_TRY_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
+            MYSQL_ADMIN=(--defaults-file="$MYSQL_TRY_CRED")
+            return 0
+        fi
+        rm -f "$MYSQL_TRY_CRED"
+    fi
+    printf '%s\n' "$L_E_ROOT_DENIED_1" "$L_E_ROOT_DENIED_2" \
+                  "$L_E_ROOT_DENIED_3" "$L_E_ROOT_DENIED_4"
+    return 1
+}
+
+mysql_admin() { mysql "${MYSQL_ADMIN[@]}" "$@"; }
+
 do_create_db() {
     local sql="/tmp/.glpi-db.sql" rc
+    find_mysql_admin || return 1
     ( umask 077; : >"$sql" )
     cat >"$sql" <<SQL
 CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -1968,13 +2028,14 @@ GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'localhost';
 GRANT ALL PRIVILEGES ON \`$DB_NAME\`.* TO '$DB_USER'@'%';
 FLUSH PRIVILEGES;
 SQL
-    mysql <"$sql"; rc=$?
+    mysql_admin <"$sql"; rc=$?
     rm -f "$sql"
     return $rc
 }
 
 do_secure_mariadb() {
     local sql="/tmp/.glpi-sec.sql" rc
+    find_mysql_admin || return 1
     ( umask 077; : >"$sql" )
     cat >"$sql" <<SQL
 ALTER USER 'root'@'localhost' IDENTIFIED BY '$ROOT_PASS';
@@ -1983,8 +2044,9 @@ DROP USER IF EXISTS ''@'%';
 DROP DATABASE IF EXISTS test;
 FLUSH PRIVILEGES;
 SQL
-    mysql <"$sql"; rc=$?
+    mysql_admin <"$sql"; rc=$?
     rm -f "$sql"
+    rm -f "$MYSQL_TRY_CRED"
     (( rc != 0 )) && return $rc
     ( umask 077; cat >"$MYSQL_CRED" <<CRED
 [client]
@@ -4570,7 +4632,7 @@ do_cleanup_logs() {
     [[ -f $LOGFILE ]] || return 0
     [[ -n $DB_PASS ]] && sed -i "s|$DB_PASS|***MASQUE***|g" "$LOGFILE" 2>/dev/null
     [[ -n $ROOT_PASS ]] && sed -i "s|$ROOT_PASS|***MASQUE***|g" "$LOGFILE" 2>/dev/null
-    rm -f /tmp/.glpi-db.sql /tmp/.glpi-sec.sql
+    rm -f /tmp/.glpi-db.sql /tmp/.glpi-sec.sql "$MYSQL_TRY_CRED"
     return 0
 }
 
@@ -4830,7 +4892,7 @@ check_internet() {
 
 cleanup() {
     tui_stop
-    rm -f "$STEP_LOG" "$APT_STATUS" /tmp/glpi-url.txt /tmp/.glpi-db.sql /tmp/.glpi-sec.sql 2>/dev/null
+    rm -f "$STEP_LOG" "$APT_STATUS" /tmp/glpi-url.txt /tmp/.glpi-db.sql /tmp/.glpi-sec.sql "$MYSQL_TRY_CRED" 2>/dev/null
 }
 
 main_loop() {
@@ -4881,6 +4943,11 @@ main_loop() {
             ENTER)
                 if sel_is_button; then
                     if validate_form; then
+                        if ! check_mysql_root; then
+                            modal_message "$L_MYSQL_ROOT_T" "$L_MYSQL_ROOT_BODY" "$C_ERR"
+                            select_field_row root_pass
+                            continue
+                        fi
                         local extra=""
                         [[ -d $GLPI_DIR ]] && extra="
 $(printf "$L_CONFIRM_EXISTS" "$GLPI_DIR")

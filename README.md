@@ -430,6 +430,26 @@ ls -l /etc/ssl/glpi/
 systemctl reload apache2
 ```
 
+### `ERROR 1045 (28000): Access denied for user 'root'@'localhost'`
+
+Une installation précédente a défini un mot de passe root MariaDB. L'installateur
+essaie automatiquement, dans cet ordre : la connexion par socket, le fichier
+`/root/.mysql_credentials`, puis le mot de passe saisi dans le formulaire. Si les
+trois échouent, saisissez le mot de passe root existant dans le champ
+**Mot de passe root MariaDB**, ou supprimez MariaDB avec
+`sudo ./uninstall-glpi.sh` avant de recommencer.
+
+A previous installation set a MariaDB root password. The installer automatically
+tries, in this order: socket connection, the `/root/.mysql_credentials` file,
+then the password typed in the form. If all three fail, type the existing root
+password into the **MariaDB root password** field, or remove MariaDB with
+`sudo ./uninstall-glpi.sh` before starting again.
+
+```bash
+# retrouver le mot de passe root d'une installation precedente
+sudo cat /root/.mysql_credentials
+```
+
 ### Erreur de connexion à la base de données
 
 ```bash
