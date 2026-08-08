@@ -14,7 +14,7 @@
 set -o pipefail
 
 #------------------------------------------------------------------ constantes
-SCRIPT_VERSION="2.4"
+SCRIPT_VERSION="2.5"
 LOGFILE="/var/log/glpi-install.log"
 STEP_LOG="/tmp/glpi-step.log"
 APT_STATUS="/tmp/glpi-apt-status.log"
@@ -25,6 +25,8 @@ GLPI_ARCHIVE="/tmp/glpi.tgz"
 SSL_DIR="/etc/ssl/glpi"
 MYSQL_CRED="/root/.mysql_credentials"
 MYSQL_TRY_CRED="/tmp/.glpi-try-cred"
+FW_PORTS_FILE="/tmp/glpi-fw-ports.txt"
+FW_PORTS=""                 # ports ouverts par cette installation
 UNINSTALL_PATH="./uninstall-glpi.sh"
 GLPI_FALLBACK_URL="https://github.com/glpi-project/glpi/releases/download/11.0.0/glpi-11.0.0.tgz"
 
@@ -322,7 +324,7 @@ load_strings() {
         L_F_REMOTE="Remote MariaDB access"
         L_H_REMOTE="Makes MariaDB listen on 0.0.0.0: only with a firewall."
         L_F_FIREWALL="Configure the UFW firewall"
-        L_H_FIREWALL="Allows ports 22 (SSH), 80 and 443 only."
+        L_H_FIREWALL="Opens SSH, 80 and 443 (443 with HTTPS only). Existing rules are kept."
         L_F_DOMAIN="Server domain or IP"
         L_H_DOMAIN="Used for the certificate and the final URL."
         L_F_SSL="Self-signed certificate"
@@ -415,6 +417,7 @@ load_strings() {
         L_DL_RECEIVED="%s received"
 
         # etapes
+        L_S_APT_LOCK="Waiting for the package manager"
         L_S_APT_UPDATE="Updating package lists"
         L_S_APT_WEB="Installing Apache and MariaDB"
         L_S_APT_PHP="Installing PHP and its extensions"
@@ -564,7 +567,7 @@ load_strings() {
         L_F_REMOTE="Acces MariaDB distant"
         L_H_REMOTE="Fait ecouter MariaDB sur 0.0.0.0 : a n'activer qu'avec un pare-feu."
         L_F_FIREWALL="Configurer le pare-feu UFW"
-        L_H_FIREWALL="N'autorise que les ports 22 (SSH), 80 et 443."
+        L_H_FIREWALL="Ouvre SSH, 80 et 443 (443 si HTTPS). Les regles existantes sont conservees."
         L_F_DOMAIN="Domaine ou IP du serveur"
         L_H_DOMAIN="Utilise pour le certificat et l'URL finale."
         L_F_SSL="Certificat auto-signe"
@@ -657,6 +660,7 @@ load_strings() {
         L_DL_RECEIVED="%s recus"
 
         # etapes
+        L_S_APT_LOCK="Attente du gestionnaire de paquets"
         L_S_APT_UPDATE="Mise a jour des listes de paquets"
         L_S_APT_WEB="Installation d'Apache et MariaDB"
         L_S_APT_PHP="Installation de PHP et de ses extensions"
@@ -2038,6 +2042,17 @@ probe_apt_update() {
     printf '%d' "$p"
 }
 
+# Sonde de l'attente du verrou apt : le pourcentage affiche est le temps
+# ecoule sur le temps d'attente maximum, faute de mieux a mesurer.
+probe_apt_lock() {
+    local e=$(( SECONDS - APT_LOCK_T0 ))
+    (( APT_LOCK_MAX > 0 )) || { printf '0'; return; }
+    e=$(( e * 100 / APT_LOCK_MAX ))
+    (( e < 0 )) && e=0
+    (( e > 100 )) && e=100
+    printf '%d' "$e"
+}
+
 probe_wget() {
     local p
     p=$(grep -o '[0-9]\{1,3\}%' "$WGET_LOG" 2>/dev/null | tail -n1)
@@ -2107,14 +2122,65 @@ $(printf "$L_FATAL_LOG" "$LOGFILE")" "$C_ERR"
 #  14. TACHES D'INSTALLATION
 #==============================================================================
 
+#--------------------------------------------------------- verrou dpkg / apt
+# Sur une machine qui vient d'etre installee ou de demarrer, apt est presque
+# toujours deja pris : unattended-upgrades applique les mises a jour de
+# securite pendant la premiere minute. Sans attente, la toute premiere etape
+# echoue sur "Could not get lock /var/lib/dpkg/lock-frontend" et l'utilisateur
+# n'a pour explication que six lignes de log tronquees.
+APT_LOCK_MAX=180        # attente maximale, en secondes
+APT_LOCK_T0=0           # instant du debut de l'attente (pour la sonde)
+
+# Le verrou de dpkg est pose avec fcntl() : flock(1) ne le voit pas. On se
+# rabat donc sur fuser quand il est la, sinon sur les noms de processus
+# (unattended-upgr est tronque a 15 caracteres par le noyau).
+apt_lock_busy() {
+    if command -v fuser >/dev/null 2>&1; then
+        fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock \
+              /var/lib/apt/lists/lock >/dev/null 2>&1 && return 0
+        return 1
+    fi
+    command -v pgrep >/dev/null 2>&1 || return 1
+    local p
+    for p in apt apt-get aptitude dpkg unattended-upgr; do
+        pgrep -x "$p" >/dev/null 2>&1 && return 0
+    done
+    return 1
+}
+
+# Ne renvoie jamais d'echec : l'attente est un confort, pas une condition.
+# Si apt reste occupe, "DPkg::Lock::Timeout" laisse une seconde chance.
+do_wait_apt_lock() {
+    local waited=0
+    if ! apt_lock_busy; then
+        printf 'Gestionnaire de paquets disponible.\n'
+        return 0
+    fi
+    printf 'Gestionnaire de paquets occupe (mises a jour automatiques ?).\n'
+    while apt_lock_busy && (( waited < APT_LOCK_MAX )); do
+        sleep 2
+        waited=$(( waited + 2 ))
+    done
+    if apt_lock_busy; then
+        printf 'Toujours occupe apres %ss, on tente quand meme.\n' "$waited"
+    else
+        printf 'Verrou libere apres %ss.\n' "$waited"
+    fi
+    return 0
+}
+
 # LC_ALL=C : les messages d'apt servent au calcul de progression,
 # leur format doit rester stable quelle que soit la langue du systeme.
+# DPkg::Lock::Timeout : apt attend le verrou de lui-meme au lieu d'abandonner
+# si un autre client se reveille en cours d'installation (apt >= 2.0).
+APT_OPTS=(-o APT::Status-Fd=3 -o DPkg::Lock::Timeout=120)
+
 do_apt_update() {
-    LC_ALL=C apt-get update -y -o APT::Status-Fd=3 3>"$APT_STATUS"
+    LC_ALL=C apt-get update -y "${APT_OPTS[@]}" 3>"$APT_STATUS"
 }
 
 do_apt_install() {
-    LC_ALL=C apt-get install -y -o APT::Status-Fd=3 "$@" 3>"$APT_STATUS"
+    LC_ALL=C apt-get install -y "${APT_OPTS[@]}" "$@" 3>"$APT_STATUS"
 }
 
 # Vrai si apt connait ce nom de paquet. apt-cache show sort en 0 des que le nom
@@ -2378,6 +2444,79 @@ do_permissions() {
     return 0
 }
 
+# Liste des noms couverts par le certificat, au format attendu par openssl.
+# Le nom saisi peut etre une adresse IP (valeur par defaut du formulaire) : il
+# faut alors "IP:" et pas "DNS:", sinon le navigateur ne fait pas le
+# rapprochement avec l'adresse de la barre d'URL.
+ssl_san_list() {
+    local -a cand=("$DOMAIN" "$MI_IP" "$MI_HOST" "localhost" "127.0.0.1")
+    local out="" c e seen="|"
+    for c in "${cand[@]}"; do
+        [[ -z $c ]] && continue
+        [[ $seen == *"|$c|"* ]] && continue
+        seen="$seen$c|"
+        if [[ $c =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then e="IP:$c"; else e="DNS:$c"; fi
+        [[ -n $out ]] && out="$out,"
+        out="$out$e"
+    done
+    printf '%s' "$out"
+}
+
+# Un certificat sans extension subjectAltName est rejete par tous les
+# navigateurs actuels : Chrome ignore le Common Name depuis sa version 58 et
+# Firefox fait de meme. La page ne s'ouvrait donc pas du tout
+# (ERR_CERT_COMMON_NAME_INVALID) au lieu d'afficher l'avertissement habituel
+# sur le certificat auto-signe, que l'on peut accepter.
+do_ssl_cert() {
+    local san cfg="/tmp/.glpi-ssl.cnf"
+    san=$(ssl_san_list)
+    printf 'Certificat auto-signe pour %s jours\n' "$SSL_DAYS"
+    printf 'subjectAltName : %s\n' "$san"
+
+    if openssl req -x509 -nodes -days "$SSL_DAYS" -newkey rsa:2048 \
+        -keyout "$SSL_DIR/glpi.key" -out "$SSL_DIR/glpi.crt" \
+        -subj "/C=FR/ST=France/L=Local/O=GLPI/CN=$DOMAIN" \
+        -addext "subjectAltName=$san" \
+        -addext "basicConstraints=critical,CA:FALSE" \
+        -addext "keyUsage=critical,digitalSignature,keyEncipherment" \
+        -addext "extendedKeyUsage=serverAuth"; then
+        chmod 600 "$SSL_DIR/glpi.key"
+        openssl x509 -in "$SSL_DIR/glpi.crt" -noout -ext subjectAltName 2>/dev/null
+        return 0
+    fi
+
+    # -addext date d'OpenSSL 1.1.1 : sur une version plus ancienne, les
+    # extensions passent par un fichier de configuration.
+    printf 'Option -addext refusee, passage par un fichier de configuration.\n'
+    ( umask 077; cat >"$cfg" <<CNF
+[req]
+distinguished_name = dn
+x509_extensions    = ext
+prompt             = no
+
+[dn]
+C  = FR
+ST = France
+L  = Local
+O  = GLPI
+CN = $DOMAIN
+
+[ext]
+subjectAltName         = $san
+basicConstraints       = critical,CA:FALSE
+keyUsage               = critical,digitalSignature,keyEncipherment
+extendedKeyUsage       = serverAuth
+CNF
+    )
+    openssl req -x509 -nodes -days "$SSL_DAYS" -newkey rsa:2048 \
+        -keyout "$SSL_DIR/glpi.key" -out "$SSL_DIR/glpi.crt" \
+        -config "$cfg" || { rm -f "$cfg"; return 1; }
+    rm -f "$cfg"
+    chmod 600 "$SSL_DIR/glpi.key"
+    openssl x509 -in "$SSL_DIR/glpi.crt" -noout -ext subjectAltName 2>/dev/null
+    return 0
+}
+
 do_apache_vhost() {
     if [[ $SSL_ON == oui ]]; then
         # Le site est servi en HTTPS : le vhost en clair ne sert plus qu'a
@@ -2411,10 +2550,7 @@ CONF
 
     if [[ $SSL_ON == oui ]]; then
         mkdir -p "$SSL_DIR"
-        openssl req -x509 -nodes -days "$SSL_DAYS" -newkey rsa:2048 \
-            -keyout "$SSL_DIR/glpi.key" -out "$SSL_DIR/glpi.crt" \
-            -subj "/C=FR/ST=France/L=Local/O=GLPI/CN=$DOMAIN" || return 1
-        chmod 600 "$SSL_DIR/glpi.key"
+        do_ssl_cert || return 1
         cat >/etc/apache2/sites-available/glpi-ssl.conf <<CONF
 <VirtualHost *:443>
     ServerName $DOMAIN
@@ -2443,6 +2579,47 @@ CONF
     systemctl reload apache2 || systemctl restart apache2
 }
 
+# php_set <fichier ini> <directive> <valeur>
+# Remplace la directive qu'elle soit active ou commentee. Si elle n'apparait
+# nulle part dans le fichier, elle est ajoutee a la fin : un sed seul ne
+# poserait rien du tout dans ce cas et l'option resterait a sa valeur par
+# defaut sans que personne ne s'en apercoive.
+php_set() {
+    local ini=$1 key=$2 val=$3 esc
+    esc=${key//./\\.}
+    if grep -qE "^[[:space:]]*;?[[:space:]]*${esc}[[:space:]]*=" "$ini"; then
+        # delimiteur # : les fuseaux et les locales contiennent des /
+        sed -i "s#^[[:space:]]*;\?[[:space:]]*${esc}[[:space:]]*=.*#${key} = ${val}#" "$ini"
+    else
+        printf '\n; ajoute par install-glpi-https.sh v%s\n%s = %s\n' \
+               "$SCRIPT_VERSION" "$key" "$val" >>"$ini"
+    fi
+}
+
+# Sauvegarde le fichier avant la premiere modification : le script de
+# desinstallation remet ces copies en place.
+php_backup() {
+    [[ -f $1.glpi-backup ]] || cp -p "$1" "$1.glpi-backup"
+}
+
+# Debian donne "memory_limit = -1" au SAPI CLI, ce qui vaut mieux que la
+# valeur du serveur web : on ne remonte la limite que si elle est finie et
+# inferieure a ce que GLPI demande.
+php_raise_cli_memory() {
+    local ini=$1 cur
+    cur=$(grep -E '^[[:space:]]*memory_limit[[:space:]]*=' "$ini" 2>/dev/null \
+          | tail -n1 | sed -e 's/.*=[[:space:]]*//' -e 's/[[:space:]"]//g')
+    [[ $cur =~ ^([0-9]+)[MmGg]?$ ]] || { printf '  cli memory_limit = %s (inchange)\n' "${cur:-?}"; return 0; }
+    local n=${BASH_REMATCH[1]}
+    [[ $cur =~ [Gg]$ ]] && n=$(( n * 1024 ))
+    if (( n < 256 )); then
+        php_set "$ini" memory_limit 256M
+        printf '  cli memory_limit : %s -> 256M\n' "$cur"
+    else
+        printf '  cli memory_limit = %s (inchange)\n' "$cur"
+    fi
+}
+
 do_php_config() {
     local ini
     # session.cookie_secure interdit au navigateur d'emettre le cookie de
@@ -2463,19 +2640,33 @@ do_php_config() {
 
     for ini in /etc/php/*/apache2/php.ini; do
         [[ -f $ini ]] || continue
-        # copie d'origine : le script de desinstallation la remet en place
-        [[ -f $ini.glpi-backup ]] || cp -p "$ini" "$ini.glpi-backup"
-        sed -i "s/^;*[[:space:]]*session.cookie_httponly[[:space:]]*=.*/session.cookie_httponly = On/" "$ini"
-        sed -i "s/^;*[[:space:]]*session.cookie_secure[[:space:]]*=.*/session.cookie_secure = $secure/" "$ini"
-        sed -i "s/^;*[[:space:]]*intl.default_locale[[:space:]]*=.*/intl.default_locale = $PHP_LOCALE/" "$ini"
-        sed -i "s/^;*[[:space:]]*upload_max_filesize[[:space:]]*=.*/upload_max_filesize = 32M/" "$ini"
-        sed -i "s/^;*[[:space:]]*post_max_size[[:space:]]*=.*/post_max_size = 32M/" "$ini"
-        sed -i "s/^;*[[:space:]]*memory_limit[[:space:]]*=.*/memory_limit = 256M/" "$ini"
-        sed -i "s/^;*[[:space:]]*max_execution_time[[:space:]]*=.*/max_execution_time = 600/" "$ini"
-        sed -i "s/^;*[[:space:]]*session.cookie_samesite[[:space:]]*=.*/session.cookie_samesite = Lax/" "$ini"
-        # le nom de fuseau contient une barre oblique : autre delimiteur sed
-        sed -i "s#^;*[[:space:]]*date.timezone[[:space:]]*=.*#date.timezone = $tz#" "$ini"
+        printf 'Configuration web : %s\n' "$ini"
+        php_backup "$ini"
+        php_set "$ini" session.cookie_httponly On
+        php_set "$ini" session.cookie_secure   "$secure"
+        php_set "$ini" session.cookie_samesite Lax
+        php_set "$ini" intl.default_locale     "$PHP_LOCALE"
+        php_set "$ini" upload_max_filesize     32M
+        php_set "$ini" post_max_size           32M
+        php_set "$ini" memory_limit            256M
+        php_set "$ini" max_execution_time      600
+        php_set "$ini" date.timezone           "$tz"
     done
+
+    # Les actions automatiques passent par front/cron.php, execute par le
+    # binaire php en ligne de commande : il lit /etc/php/*/cli/php.ini et pas
+    # celui d'Apache. Sans date.timezone ici, tout ce que le cron ecrit en
+    # base (dates d'echeance, historique, relances) est horodate en UTC alors
+    # que l'interface affiche l'heure locale.
+    for ini in /etc/php/*/cli/php.ini; do
+        [[ -f $ini ]] || continue
+        printf 'Configuration CLI (cron) : %s\n' "$ini"
+        php_backup "$ini"
+        php_set "$ini" date.timezone       "$tz"
+        php_set "$ini" intl.default_locale "$PHP_LOCALE"
+        php_raise_cli_memory "$ini"
+    done
+
     systemctl reload apache2 || systemctl restart apache2
 }
 
@@ -2527,15 +2718,84 @@ CRON
     return 0
 }
 
+# Ports d'ecoute reels de sshd. Ouvrir le 22 sans se poser de question est un
+# pari : sur une machine ou SSH ecoute ailleurs, activer le pare-feu avec un
+# refus par defaut coupe la session en cours et interdit toute reconnexion.
+ssh_ports() {
+    local -a p=()
+    local l port out="" seen="|"
+    if command -v sshd >/dev/null 2>&1; then
+        while read -r l; do
+            [[ $l =~ ^port[[:space:]]+([0-9]+) ]] && p+=("${BASH_REMATCH[1]}")
+        done < <(LC_ALL=C sshd -T 2>/dev/null | grep -i '^port ')
+    fi
+    if (( ${#p[@]} == 0 )); then
+        while read -r l; do
+            [[ $l =~ ^[[:space:]]*[Pp]ort[[:space:]]+([0-9]+) ]] && p+=("${BASH_REMATCH[1]}")
+        done < <(cat /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null)
+    fi
+    # le port de la session en cours est le plus sur de tous
+    if [[ -n ${SSH_CONNECTION:-} ]]; then
+        port=$(awk '{print $4}' <<<"$SSH_CONNECTION")
+        [[ $port =~ ^[0-9]+$ ]] && p+=("$port")
+    fi
+    (( ${#p[@]} == 0 )) && p=(22)
+    for port in "${p[@]}"; do
+        [[ $seen == *"|$port|"* ]] && continue
+        seen="$seen$port|"
+        out="$out $port"
+    done
+    printf '%s' "${out# }"
+}
+
 do_firewall() {
-    command -v ufw >/dev/null 2>&1 || apt-get install -y ufw || return 1
-    ufw --force reset >/dev/null 2>&1
-    ufw default deny incoming || return 1
-    ufw default allow outgoing || return 1
-    ufw allow 22/tcp || return 1
-    ufw allow 80/tcp || return 1
-    ufw allow 443/tcp || return 1
-    ufw --force enable
+    local sshp p act=0 opened=""
+    : >"$FW_PORTS_FILE"
+    if ! command -v ufw >/dev/null 2>&1; then
+        do_apt_install ufw || return 1
+    fi
+    command -v ufw >/dev/null 2>&1 || return 1
+
+    sshp=$(ssh_ports)
+    printf 'Ports SSH detectes : %s\n' "$sshp"
+
+    ufw status 2>/dev/null \
+        | grep -qiE '^(Status|Statut)[[:space:]]*:[[:space:]]*(active|actif)' && act=1
+
+    if (( act )); then
+        # Pare-feu deja en service : on ajoute seulement ce qui manque. Un
+        # "ufw --force reset" effacerait les regles posees par l'administrateur
+        # (VPN, supervision, base distante) sans le lui avoir demande, et sans
+        # moyen de les retrouver ensuite.
+        printf 'ufw deja actif : ajout des regles, aucune remise a zero.\n'
+    else
+        printf 'ufw inactif : mise en place des regles par defaut.\n'
+        ufw default deny incoming || return 1
+        ufw default allow outgoing || return 1
+    fi
+
+    for p in $sshp; do
+        ufw allow "$p/tcp" >/dev/null || return 1
+        printf 'Autorise : %s/tcp (SSH)\n' "$p"
+    done
+
+    ufw allow 80/tcp >/dev/null || return 1
+    opened="80/tcp"
+    printf 'Autorise : 80/tcp\n'
+    # le 443 n'est ouvert que si un certificat est reellement pose
+    if [[ $SSL_ON == oui ]]; then
+        ufw allow 443/tcp >/dev/null || return 1
+        opened="$opened 443/tcp"
+        printf 'Autorise : 443/tcp\n'
+    fi
+
+    # etape executee dans un sous-shell : la liste passe par un fichier pour
+    # etre reprise dans le script de desinstallation
+    printf '%s\n' "$opened" >"$FW_PORTS_FILE"
+
+    (( act )) || ufw --force enable || return 1
+    ufw status verbose 2>/dev/null
+    return 0
 }
 
 # Ecrit ./uninstall-glpi.sh : un script autonome, avec sa propre interface
@@ -2577,6 +2837,10 @@ SSL_DIR='$SSL_DIR'
 MYSQL_CRED='$MYSQL_CRED'
 INSTALL_LOG='$LOGFILE'
 
+# Ports que l'installation a ouverts dans ufw : ce sont eux qui sont coches
+# par defaut dans le menu du pare-feu. Vide si le pare-feu n'a pas ete touche.
+GLPI_FW_PORTS='$FW_PORTS'
+
 CONF
         cat <<'GLPI_UNINSTALLER_EOF'
 set -o pipefail
@@ -2593,6 +2857,7 @@ export DEBIAN_FRONTEND=noninteractive
 CLI_MODE=0          # 1 = pas d'interface, sortie texte
 CLI_FORCE=0         # 1 = -y : aucune question
 CLI_PROFILE=""      # all | keep
+CLI_FW="glpi"       # none | glpi | all | liste de ports
 RESIZED=0
 
 #==============================================================================
@@ -2858,10 +3123,35 @@ load_strings() {
         L_H_AUTOREM="Runs apt-get autoremove --purge."
         L_F_RESTORE="Restore system configuration"
         L_H_RESTORE="Puts back the files saved before the installation."
-        L_F_FIREWALL="Remove UFW rules 80/443"
-        L_H_FIREWALL="Port 22 (SSH) stays allowed, UFW stays enabled."
+        L_F_FIREWALL="Firewall rules (ufw)"
+        L_H_FIREWALL="Enter: pick the rules to remove. Nothing is touched by default."
         L_F_SELFDEL="Delete this script at the end"
         L_H_SELFDEL="Removes %s once the uninstall is over."
+
+        # sous-ecran du pare-feu
+        L_FW_T="UFW FIREWALL RULES"
+        L_FW_NO_UFW="ufw is not installed: there is no rule to remove."
+        L_FW_INACTIVE="ufw is installed but disabled: no rule is in force."
+        L_FW_EMPTY="ufw is enabled but holds no rule."
+        L_FW_INTRO="Ticked rules will be deleted. SSH listens on: %s"
+        L_FW_COLS="    num  rule                             action      from"
+        L_FW_HELP="Space: tick   a: all but SSH   n: none   g: GLPI ports   Enter: OK   Esc: cancel"
+        L_FW_STATUS="%s rule(s) ticked out of %s."
+        L_FW_SSH_TAG="SSH"
+        L_FW_SSH_WARN="WARNING: an SSH rule is ticked, you may lose access to this machine."
+        L_FW_M_ALL="Every rule ticked, except the SSH ones."
+        L_FW_M_NONE="No rule ticked: the firewall stays as it is."
+        L_FW_M_GLPI="Only the ports opened by the GLPI installation are ticked."
+        L_FW_CONFIRM_T="SSH RULE"
+        L_FW_CONFIRM_SSH="An SSH rule is about to be deleted.
+If you are connected over SSH, you may not be able to log in again.
+
+Delete it anyway?"
+        L_FW_D_ABSENT="ufw not installed"
+        L_FW_D_INACTIVE="ufw disabled"
+        L_FW_D_NONE="leave untouched"
+        L_FW_D_SEL="%s rule(s) to remove"
+        L_CLI_FW="UFW rules to be deleted:"
 
         # barre de statut
         L_ST_BUTTON="Press Enter to start the removal."
@@ -2921,7 +3211,7 @@ load_strings() {
         L_T_AUTOREM="unused dependencies"
         L_T_RESTORE="restored configuration"
         L_T_STOP="services stopped"
-        L_T_FIREWALL="UFW rules"
+        L_T_FIREWALL="%s UFW rule(s)"
         L_T_SELF="this script"
 
         # ecran de suppression
@@ -3045,8 +3335,33 @@ load_strings() {
         L_H_AUTOREM="Lance apt-get autoremove --purge."
         L_F_RESTORE="Restaurer la config systeme"
         L_H_RESTORE="Remet les fichiers sauvegardes avant l'installation."
-        L_F_FIREWALL="Retirer les regles UFW"
-        L_H_FIREWALL="Le port 22 (SSH) reste autorise, UFW reste actif."
+        L_F_FIREWALL="Regles du pare-feu (ufw)"
+        L_H_FIREWALL="Entree : choisir les regles a retirer. Rien n'est touche par defaut."
+
+        # sous-ecran du pare-feu
+        L_FW_T="REGLES DU PARE-FEU UFW"
+        L_FW_NO_UFW="ufw n'est pas installe : il n'y a aucune regle a retirer."
+        L_FW_INACTIVE="ufw est installe mais desactive : aucune regle ne s'applique."
+        L_FW_EMPTY="ufw est actif mais ne contient aucune regle."
+        L_FW_INTRO="Les regles cochees seront supprimees. SSH ecoute sur : %s"
+        L_FW_COLS="    num  regle                            action      depuis"
+        L_FW_HELP="Espace : cocher   a : tout sauf SSH   n : rien   g : ports GLPI   Entree : OK   Echap : annuler"
+        L_FW_STATUS="%s regle(s) cochee(s) sur %s."
+        L_FW_SSH_TAG="SSH"
+        L_FW_SSH_WARN="ATTENTION : une regle SSH est cochee, vous risquez de perdre l'acces a la machine."
+        L_FW_M_ALL="Toutes les regles cochees, sauf celles de SSH."
+        L_FW_M_NONE="Aucune regle cochee : le pare-feu reste en l'etat."
+        L_FW_M_GLPI="Seuls les ports ouverts par l'installation de GLPI sont coches."
+        L_FW_CONFIRM_T="REGLE SSH"
+        L_FW_CONFIRM_SSH="Une regle SSH va etre supprimee.
+Si vous etes connecte en SSH, vous ne pourrez peut-etre plus vous reconnecter.
+
+Supprimer quand meme ?"
+        L_FW_D_ABSENT="ufw absent"
+        L_FW_D_INACTIVE="ufw desactive"
+        L_FW_D_NONE="ne rien toucher"
+        L_FW_D_SEL="%s regle(s) a retirer"
+        L_CLI_FW="Regles UFW qui seront supprimees :"
         L_F_SELFDEL="Supprimer ce script a la fin"
         L_H_SELFDEL="Supprime %s une fois la desinstallation terminee."
 
@@ -3108,7 +3423,7 @@ load_strings() {
         L_T_AUTOREM="dependances inutilisees"
         L_T_RESTORE="configuration restauree"
         L_T_STOP="arret des services"
-        L_T_FIREWALL="regles UFW"
+        L_T_FIREWALL="%s regle(s) UFW"
         L_T_SELF="ce script"
 
         # ecran de suppression
@@ -3470,10 +3785,117 @@ detect_other_dbs() {
     done < <(db_query 'SHOW DATABASES;')
 }
 
+#--------------------------------------------------------- regles du pare-feu
+# FW_STATE : absent (ufw pas installe) | inactive | active
+# FW_NUM   : numero de la regle tel qu'affiche par "ufw status numbered"
+# FW_TXT   : ligne de la regle, espaces normalises
+# FW_SEL   : 1 = regle a supprimer
+# FW_SSH   : 1 = regle qui porte sur un port d'ecoute de sshd
+FW_STATE="absent"
+declare -a FW_NUM=() FW_TXT=() FW_SEL=() FW_SSH=()
+FW_SSH_PORTS=""
+
+# Ports d'ecoute reels de sshd : ce sont les regles a ne jamais cocher sans
+# que l'utilisateur ait vu ce qu'il faisait.
+ssh_ports() {
+    local -a p=()
+    local l port out="" seen="|"
+    if command -v sshd >/dev/null 2>&1; then
+        while read -r l; do
+            [[ $l =~ ^port[[:space:]]+([0-9]+) ]] && p+=("${BASH_REMATCH[1]}")
+        done < <(LC_ALL=C sshd -T 2>/dev/null | grep -i '^port ')
+    fi
+    if (( ${#p[@]} == 0 )); then
+        while read -r l; do
+            [[ $l =~ ^[[:space:]]*[Pp]ort[[:space:]]+([0-9]+) ]] && p+=("${BASH_REMATCH[1]}")
+        done < <(cat /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf 2>/dev/null)
+    fi
+    if [[ -n ${SSH_CONNECTION:-} ]]; then
+        port=$(awk '{print $4}' <<<"$SSH_CONNECTION")
+        [[ $port =~ ^[0-9]+$ ]] && p+=("$port")
+    fi
+    (( ${#p[@]} == 0 )) && p=(22)
+    for port in "${p[@]}"; do
+        [[ $seen == *"|$port|"* ]] && continue
+        seen="$seen$port|"
+        out="$out $port"
+    done
+    printf '%s' "${out# }"
+}
+
+# Espaces multiples ramenes a un seul : la sortie de ufw est alignee en
+# colonnes, la comparaison de deux regles doit ignorer cet alignement.
+fw_norm() {
+    local s=$1
+    s=${s//$'\t'/ }
+    while [[ $s == *"  "* ]]; do s=${s//  / }; done
+    s=${s#"${s%%[![:space:]]*}"}
+    s=${s%"${s##*[![:space:]]}"}
+    printf '%s' "$s"
+}
+
+# Premier champ d'une regle : "80/tcp", "22", "OpenSSH", "Anywhere"...
+fw_target() { printf '%s' "${1%% *}"; }
+
+# Numero de port d'une regle, vide si la regle vise un profil applicatif.
+fw_port() {
+    local t=$1
+    [[ $t =~ ^([0-9]+)(/(tcp|udp))?$ ]] && { printf '%s' "${BASH_REMATCH[1]}"; return 0; }
+    printf ''
+}
+
+collect_firewall() {
+    FW_NUM=(); FW_TXT=(); FW_SEL=(); FW_SSH=()
+    FW_STATE="absent"
+    command -v ufw >/dev/null 2>&1 || return 0
+    FW_STATE="inactive"
+
+    local out
+    out=$(LC_ALL=C ufw status numbered 2>/dev/null) || return 0
+    grep -qiE '^(Status|Statut)[[:space:]]*:[[:space:]]*(active|actif)' <<<"$out" || return 0
+    FW_STATE="active"
+
+    FW_SSH_PORTS=$(ssh_ports)
+    local line num rest tgt port issh sel
+    while IFS= read -r line; do
+        [[ $line =~ ^\[[[:space:]]*([0-9]+)\][[:space:]]*(.*)$ ]] || continue
+        num=${BASH_REMATCH[1]}
+        rest=$(fw_norm "${BASH_REMATCH[2]}")
+        [[ -z $rest ]] && continue
+        tgt=$(fw_target "$rest")
+        port=$(fw_port "$tgt")
+        issh=0
+        if [[ -n $port && " $FW_SSH_PORTS " == *" $port "* ]]; then
+            issh=1
+        elif [[ ${tgt,,} == openssh || ${tgt,,} == ssh ]]; then
+            issh=1
+        fi
+        # coche par defaut : uniquement ce que l'installation a ouvert,
+        # et jamais une regle SSH
+        sel=0
+        if (( ! issh )) && [[ -n ${GLPI_FW_PORTS:-} && " $GLPI_FW_PORTS " == *" $tgt "* ]]; then
+            sel=1
+        fi
+        FW_NUM+=("$num"); FW_TXT+=("$rest"); FW_SEL+=("$sel"); FW_SSH+=("$issh")
+    done <<<"$out"
+    return 0
+}
+
+fw_count_sel() {
+    local i n=0
+    for (( i = 0; i < ${#FW_SEL[@]}; i++ )); do (( FW_SEL[i] )) && n=$(( n + 1 )); done
+    printf '%d' "$n"
+}
+
+fw_sync_field() {
+    if (( $(fw_count_sel) > 0 )); then VAL[firewall]="oui"; else VAL[firewall]="non"; fi
+}
+
 collect_state() {
     MI_HOST=$(hostname 2>/dev/null || printf '%s' "$L_V_UNKNOWN")
     MI_IP=$(get_ip)
     MI_OS=$(get_os)
+    collect_firewall
 
     if [[ -d $GLPI_DIR ]]; then
         MI_DIR_EXISTS=1
@@ -3550,17 +3972,18 @@ glpi_found() {
 #==============================================================================
 
 declare -a SEC_NAME SEC_OPEN
-declare -a FLD_SEC FLD_KEY FLD_LABEL FLD_HINT FLD_COND
+declare -a FLD_SEC FLD_KEY FLD_LABEL FLD_HINT FLD_COND FLD_KIND
 declare -A VAL
 
 add_section() { SEC_NAME+=("$1"); SEC_OPEN+=(1); }
 
-# add_field <cle> <libelle> <valeur> <aide> [conditions cle=valeur,cle=valeur]
+# add_field <cle> <libelle> <valeur> <aide> [conditions] [genre]
+# genre : "bool" (case a cocher, defaut) ou "menu" (ouvre un sous-ecran)
 add_field() {
     FLD_SEC+=($(( ${#SEC_NAME[@]} - 1 )))
     FLD_KEY+=("$1"); FLD_LABEL+=("$2")
     VAL["$1"]="$3"
-    FLD_HINT+=("$4"); FLD_COND+=("${5:-}")
+    FLD_HINT+=("$4"); FLD_COND+=("${5:-}"); FLD_KIND+=("${6:-bool}")
 }
 
 # Les paquets ne sont proposes a la suppression que si rien d'autre ne s'en
@@ -3593,7 +4016,10 @@ build_form() {
     add_field restore      "$L_F_RESTORE"      "oui"        "$L_H_RESTORE"
 
     add_section "$L_SEC_SYSTEM"
-    add_field firewall "$L_F_FIREWALL" "oui" "$L_H_FIREWALL"
+    # pas une case a cocher : le pare-feu ouvre la liste de ses regles
+    local fw="non"
+    (( $(fw_count_sel) > 0 )) && fw="oui"
+    add_field firewall "$L_F_FIREWALL" "$fw" "$L_H_FIREWALL" "" "menu"
     add_field selfdel  "$L_F_SELFDEL"  "non" "$(printf "$L_H_SELFDEL" "$UN_SELF")"
 }
 
@@ -3627,7 +4053,21 @@ build_rows() {
 }
 
 field_display() {
-    local v=${VAL[${FLD_KEY[$1]}]}
+    local i=$1 v=${VAL[${FLD_KEY[$1]}]}
+    if [[ ${FLD_KIND[i]} == menu ]]; then
+        # le champ pare-feu resume son sous-ecran au lieu d'un oui / non
+        case $FW_STATE in
+            absent)   DISPV="[-] $L_FW_D_ABSENT";   DISPC=$C_MUTED; return ;;
+            inactive) DISPV="[-] $L_FW_D_INACTIVE"; DISPC=$C_MUTED; return ;;
+        esac
+        local n; n=$(fw_count_sel)
+        if (( n > 0 )); then
+            DISPV="[$n] $(printf "$L_FW_D_SEL" "$n")"; DISPC=$C_ERR
+        else
+            DISPV="[ ] $L_FW_D_NONE"; DISPC=$C_MUTED
+        fi
+        return
+    fi
     if [[ $v == oui ]]; then
         DISPV="[x] $L_YESV"; DISPC=$C_ERR
     else
@@ -3640,10 +4080,23 @@ toggle_bool() {
     if [[ ${VAL[$key]} == oui ]]; then VAL[$key]="non"; else VAL[$key]="oui"; fi
 }
 
+# Entree / espace sur une ligne : bascule la case, ou ouvre le sous-ecran.
+activate_field() {
+    local i=$1
+    if [[ ${FLD_KIND[i]} == menu ]]; then
+        firewall_menu
+    else
+        toggle_bool "${FLD_KEY[i]}"
+    fi
+}
+
+# "a" et "n" ne touchent pas au pare-feu : cocher d'un coup toutes ses regles
+# reviendrait a fermer le port SSH sans l'avoir demande.
 set_all() {
     local v=$1 i
     for (( i = 0; i < ${#FLD_KEY[@]}; i++ )); do
         [[ ${FLD_KEY[i]} == selfdel ]] && continue
+        [[ ${FLD_KIND[i]} == menu ]] && continue
         VAL[${FLD_KEY[i]}]=$v
     done
 }
@@ -4034,6 +4487,147 @@ modal_edit() {
     put $(( MY + 6 )) $(( MX + 2 )) "${C_MUTED}${PAD}${C_RESET}"
     printf '%s' "$BUF"
     edit_line $(( MY + 4 )) $(( MX + 3 )) $(( w - 6 )) "$cur" "$mask"
+}
+
+#------------------------------------------------------ sous-ecran du pare-feu
+fw_ssh_selected() {
+    local i
+    for (( i = 0; i < ${#FW_SEL[@]}; i++ )); do
+        (( FW_SEL[i] && FW_SSH[i] )) && return 0
+    done
+    return 1
+}
+
+# Coche les seules regles que l'installation avait ouvertes. Si elle n'a pas
+# touche au pare-feu, on retombe sur les deux ports du service web.
+fw_select_glpi() {
+    local i tgt list=${GLPI_FW_PORTS:-}
+    [[ -z $list ]] && list="80/tcp 443/tcp"
+    for (( i = 0; i < ${#FW_NUM[@]}; i++ )); do
+        FW_SEL[i]=0
+        (( FW_SSH[i] )) && continue
+        tgt=$(fw_target "${FW_TXT[i]}")
+        [[ " $list " == *" $tgt "* ]] && FW_SEL[i]=1
+    done
+}
+
+# Liste les regles ufw en place et laisse choisir celles a supprimer. Aucune
+# regle n'est touchee tant qu'aucune ligne n'est cochee : c'est le cas par
+# defaut des que l'installation n'a pas ouvert de port elle-meme.
+firewall_menu() {
+    case $FW_STATE in
+        absent)   modal_message "$L_FW_T" "$L_FW_NO_UFW"   "$C_WARN"; return 1 ;;
+        inactive) modal_message "$L_FW_T" "$L_FW_INACTIVE" "$C_WARN"; return 1 ;;
+    esac
+    if (( ${#FW_NUM[@]} == 0 )); then
+        modal_message "$L_FW_T" "$L_FW_EMPTY" "$C_WARN"; return 1
+    fi
+
+    local n=${#FW_NUM[@]} sel=0 top=0 i
+    local -a bak=("${FW_SEL[@]}")
+    local msg="" msgc=""
+
+    while :; do
+        (( RESIZED )) && { compute_layout; RESIZED=0; }
+        local w=76 rv
+        (( w > COLS - 4 )) && w=$(( COLS - 4 ))
+        (( w < 44 )) && w=44
+        rv=$(( ROWS - 9 ))
+        (( rv > n )) && rv=$n
+        (( rv < 1 )) && rv=1
+        local h=$(( rv + 7 ))
+        local y=$(( (ROWS - h) / 2 )) x=$(( (COLS - w) / 2 ))
+        (( y < 1 )) && y=1
+        (( x < 1 )) && x=1
+        (( sel < top )) && top=$sel
+        (( sel >= top + rv )) && top=$(( sel - rv + 1 ))
+        (( top > n - rv )) && top=$(( n - rv ))
+        (( top < 0 )) && top=0
+
+        BUF=$'\e[2J'
+        draw_box "$y" "$x" "$h" "$w" "$L_FW_T" "$C_FRAME_ON"
+        local inner=$(( w - 4 ))
+
+        pad_str "$(printf "$L_FW_INTRO" "${FW_SSH_PORTS:-?}")" "$inner"
+        put $(( y + 1 )) $(( x + 2 )) "${C_MUTED}${PAD}${C_RESET}"
+        pad_str "$L_FW_COLS" "$inner"
+        put $(( y + 2 )) $(( x + 2 )) "${C_LABEL}${PAD}${C_RESET}"
+
+        local r idx mark line c
+        for (( r = 0; r < rv; r++ )); do
+            idx=$(( top + r ))
+            (( idx >= n )) && break
+            if (( FW_SEL[idx] )); then mark="[x]"; else mark="[ ]"; fi
+            printf -v line '%s [%2s] %s' "$mark" "${FW_NUM[idx]}" "${FW_TXT[idx]}"
+            (( FW_SSH[idx] )) && line="$line  <$L_FW_SSH_TAG>"
+            pad_str "$line" "$inner"
+            c=$C_VALUE
+            (( FW_SEL[idx] )) && c=$C_ERR
+            (( FW_SSH[idx] )) && c=$C_WARN
+            if (( sel == idx )); then
+                put $(( y + 3 + r )) $(( x + 2 )) "${C_SEL}${C_BOLD}${c}${PAD}${C_RESET}"
+            else
+                put $(( y + 3 + r )) $(( x + 2 )) "${c}${PAD}${C_RESET}"
+            fi
+        done
+
+        rep_char "$BX_H" "$inner"
+        put $(( y + h - 4 )) $(( x + 2 )) "${C_FRAME}${REPC}${C_RESET}"
+
+        local st=$msg stc=$msgc
+        if [[ -z $st ]]; then
+            st=$(printf "$L_FW_STATUS" "$(fw_count_sel)" "$n"); stc=$C_MUTED
+        fi
+        pad_str "$st" "$inner"
+        put $(( y + h - 3 )) $(( x + 2 )) "${stc}${PAD}${C_RESET}"
+        pad_str "$L_FW_HELP" "$inner"
+        put $(( y + h - 2 )) $(( x + 2 )) "${C_MUTED}${PAD}${C_RESET}"
+        printf '%s' "$BUF"
+
+        msg=""; msgc=""
+        read_key
+        case $KEY in
+            UP|"CHAR:k")   (( sel > 0 )) && sel=$(( sel - 1 )) ;;
+            DOWN|"CHAR:j") (( sel < n - 1 )) && sel=$(( sel + 1 )) ;;
+            PGUP) sel=$(( sel - rv )); (( sel < 0 )) && sel=0 ;;
+            PGDN) sel=$(( sel + rv )); (( sel > n - 1 )) && sel=$(( n - 1 )) ;;
+            HOME) sel=0 ;;
+            END)  sel=$(( n - 1 )) ;;
+            SPACE|LEFT|RIGHT|"CHAR:h"|"CHAR:l")
+                FW_SEL[sel]=$(( 1 - FW_SEL[sel] ))
+                if (( FW_SEL[sel] && FW_SSH[sel] )); then
+                    msg="$L_FW_SSH_WARN"; msgc=$C_ERR
+                fi
+                ;;
+            "CHAR:a"|"CHAR:A")
+                for (( i = 0; i < n; i++ )); do
+                    (( FW_SSH[i] )) && continue
+                    FW_SEL[i]=1
+                done
+                msg="$L_FW_M_ALL"; msgc=$C_WARN
+                ;;
+            "CHAR:n"|"CHAR:N")
+                for (( i = 0; i < n; i++ )); do FW_SEL[i]=0; done
+                msg="$L_FW_M_NONE"; msgc=$C_OK
+                ;;
+            "CHAR:g"|"CHAR:G")
+                fw_select_glpi
+                msg="$L_FW_M_GLPI"; msgc=$C_OK
+                ;;
+            ENTER)
+                if fw_ssh_selected && ! modal_confirm "$L_FW_CONFIRM_T" "$L_FW_CONFIRM_SSH" 1; then
+                    continue
+                fi
+                fw_sync_field
+                return 0
+                ;;
+            ESC|"CHAR:q"|"CHAR:Q")
+                FW_SEL=("${bak[@]}")
+                fw_sync_field
+                return 1
+                ;;
+        esac
+    done
 }
 
 select_language() {
@@ -4439,13 +5033,54 @@ do_un_stop() {
     return 0
 }
 
+# Numero courant d'une regle, retrouve par son libelle. ufw renumerote apres
+# chaque suppression : on relit donc la liste avant chaque passe plutot que de
+# se fier aux numeros releves a l'affichage.
+fw_find_rule() {
+    local want=$1 line num rest
+    while IFS= read -r line; do
+        [[ $line =~ ^\[[[:space:]]*([0-9]+)\][[:space:]]*(.*)$ ]] || continue
+        num=${BASH_REMATCH[1]}
+        rest=$(fw_norm "${BASH_REMATCH[2]}")
+        if [[ $rest == "$want" ]]; then printf '%s' "$num"; return 0; fi
+    done < <(LC_ALL=C ufw status numbered 2>/dev/null)
+    return 1
+}
+
+# Ne supprime que les regles cochees dans le sous-ecran du pare-feu. Les
+# anciennes versions retiraient 80 et 443 d'office, y compris quand ces ports
+# servaient a un autre site heberge sur la machine.
 do_un_firewall() {
     command -v ufw >/dev/null 2>&1 || { printf 'ufw absent.\n'; return 0; }
-    ufw delete allow 80/tcp >/dev/null 2>&1
-    ufw delete allow 443/tcp >/dev/null 2>&1
-    ufw delete allow 80 >/dev/null 2>&1
-    ufw delete allow 443 >/dev/null 2>&1
-    ufw status 2>/dev/null
+
+    local -a want=()
+    local i
+    for (( i = 0; i < ${#FW_NUM[@]}; i++ )); do
+        (( FW_SEL[i] )) && want+=("${FW_TXT[i]}")
+    done
+    if (( ${#want[@]} == 0 )); then
+        printf 'Aucune regle selectionnee : pare-feu inchange.\n'
+        return 0
+    fi
+
+    local t num
+    for t in "${want[@]}"; do
+        num=$(fw_find_rule "$t")
+        if [[ -z $num ]]; then
+            printf 'Regle introuvable, deja supprimee ? %s\n' "$t"
+            continue
+        fi
+        # "ufw delete <numero>" demande confirmation quand il a un terminal :
+        # le y en entree convient dans les deux cas.
+        if printf 'y\n' | ufw delete "$num" >/dev/null 2>&1; then
+            printf 'Supprimee : [%s] %s\n' "$num" "$t"
+        else
+            printf 'Echec de la suppression : %s\n' "$t"
+        fi
+    done
+
+    printf '\n'
+    ufw status numbered 2>/dev/null
     return 0
 }
 
@@ -4662,7 +5297,7 @@ plan_summary() {
     if [[ ${VAL[stop_svc]} == oui && ${VAL[purge_apache]} != oui ]]; then
         stack+=("$L_T_STOP")
     fi
-    [[ ${VAL[firewall]} == oui ]] && sys+=("$L_T_FIREWALL")
+    [[ ${VAL[firewall]} == oui ]] && sys+=("$(printf "$L_T_FIREWALL" "$(fw_count_sel)")")
     [[ ${VAL[selfdel]}  == oui ]] && sys+=("$L_T_SELF")
 
     local out=""
@@ -4684,6 +5319,7 @@ plan_summary() {
 confirm_text() {
     local warn=""
     [[ ${VAL[purge_mdb]} == oui ]] && warn+="$L_WARN_MDB"$'\n'
+    fw_ssh_selected && warn+="$L_FW_SSH_WARN"$'\n'
     if [[ ${VAL[purge_apache]} == oui && ${#OTHER_SITES[@]} -gt 0 ]]; then
         warn+="$(printf "$L_WARN_SITES" "${#OTHER_SITES[@]}")"$'\n'
     fi
@@ -4754,7 +5390,7 @@ main_loop() {
                 elif [[ ${VR_TYPE[$SEL]} == sec ]]; then
                     if [[ $KEY == LEFT || $KEY == "CHAR:h" ]]; then SEC_OPEN[idx]=0; else SEC_OPEN[idx]=1; fi
                 else
-                    toggle_bool "${FLD_KEY[$idx]}"
+                    activate_field "$idx"
                 fi
                 ;;
             SPACE|ENTER)
@@ -4771,7 +5407,7 @@ main_loop() {
                 elif [[ ${VR_TYPE[$SEL]} == sec ]]; then
                     SEC_OPEN[idx]=$(( 1 - SEC_OPEN[idx] ))
                 else
-                    toggle_bool "${FLD_KEY[$idx]}"
+                    activate_field "$idx"
                 fi
                 ;;
             "CHAR:a"|"CHAR:A")
@@ -4796,6 +5432,7 @@ main_loop() {
                 STATUS_KIND="info"
                 render_main
                 collect_state
+                fw_sync_field
                 STATUS_MSG="$L_ST_REFRESHED"
                 STATUS_KIND="ok"
                 ;;
@@ -4827,8 +5464,17 @@ Usage : sudo $UN_SELF [options]
   -y, --yes         mode texte, sans question / text mode, no question
   --all             tout supprimer, paquets compris / remove everything
   --keep-packages   conserver Apache, PHP et MariaDB / keep the packages
+  --firewall=MODE   regles ufw a retirer / ufw rules to remove :
+                      none  aucune regle / no rule at all
+                      glpi  les ports ouverts a l'installation (defaut)
+                      all   toutes les regles sauf SSH / all but SSH
+                      80/tcp,443/tcp  une liste explicite / explicit list
   --text            mode texte / text mode
   -h, --help        cette aide / this help
+
+En interface console, la ligne "pare-feu" ouvre la liste des regles ufw :
+c'est la seule facon d'en supprimer une, et rien n'est coche d'office en
+dehors des ports que l'installation avait elle-meme ouverts.
 
 Langue / language : GLPI_LANG=fr|en
 Theme : GLPI_THEME=dark|light
@@ -4841,6 +5487,16 @@ parse_args() {
             -y|--yes|--force) CLI_FORCE=1; CLI_MODE=1 ;;
             --all)            CLI_PROFILE="all" ;;
             --keep-packages)  CLI_PROFILE="keep" ;;
+            --firewall=*)     CLI_FW=${1#*=} ;;
+            --firewall)
+                shift
+                if [[ -z ${1:-} ]]; then
+                    printf 'Option --firewall : valeur manquante / missing value\n\n' >&2
+                    usage >&2
+                    exit 1
+                fi
+                CLI_FW=$1
+                ;;
             --text|--cli|--no-tui) CLI_MODE=1 ;;
             -h|--help)        usage; exit 0 ;;
             *)
@@ -4866,6 +5522,39 @@ apply_profile() {
     esac
 }
 
+# --firewall : meme choix qu'en interface, mais sans ecran. "all" epargne
+# toujours les regles SSH ; pour en retirer une, il faut la nommer.
+fw_apply_cli() {
+    local i e tgt port list
+    case $CLI_FW in
+        none|aucun|"")
+            for (( i = 0; i < ${#FW_NUM[@]}; i++ )); do FW_SEL[i]=0; done
+            ;;
+        glpi)
+            fw_select_glpi
+            ;;
+        all|tout)
+            for (( i = 0; i < ${#FW_NUM[@]}; i++ )); do
+                if (( FW_SSH[i] )); then FW_SEL[i]=0; else FW_SEL[i]=1; fi
+            done
+            ;;
+        *)
+            list=${CLI_FW//,/ }
+            for (( i = 0; i < ${#FW_NUM[@]}; i++ )); do
+                FW_SEL[i]=0
+                tgt=$(fw_target "${FW_TXT[i]}")
+                port=$(fw_port "$tgt")
+                for e in $list; do
+                    if [[ $tgt == "$e" || ( -n $port && $port == "$e" ) ]]; then
+                        FW_SEL[i]=1
+                    fi
+                done
+            done
+            ;;
+    esac
+    fw_sync_field
+}
+
 run_cli() {
     case "${GLPI_LANG:-}" in
         en|EN|en_US) UILANG="en" ;;
@@ -4875,11 +5564,20 @@ run_cli() {
     collect_state
     build_form
     apply_profile
+    fw_apply_cli
 
     printf '%s\n\n' "$L_CLI_TITLE"
     printf '%s\n' "$L_CLI_PLAN"
     printf '%s\n' "$(plan_summary)"
+    if [[ ${VAL[firewall]} == oui ]]; then
+        local i
+        printf '%s\n' "$L_CLI_FW"
+        for (( i = 0; i < ${#FW_NUM[@]}; i++ )); do
+            (( FW_SEL[i] )) && printf '  - %s\n' "${FW_TXT[i]}"
+        done
+    fi
     [[ ${VAL[purge_mdb]} == oui ]] && printf '%s\n' "$L_WARN_MDB"
+    fw_ssh_selected && printf '%s\n' "$L_FW_SSH_WARN"
     printf '\n'
 
     if ! any_selected; then
@@ -4985,11 +5683,33 @@ GLPI_UNINSTALLER_EOF
     printf "$L_UN_WRITTEN\n" "$out"
 }
 
+# Le masquage passait par sed, qui lit son motif comme une expression
+# reguliere : un mot de passe contenant | (le delimiteur), . ou * cassait la
+# substitution ou l'elargissait, et le mot de passe restait en clair dans le
+# journal. Le remplacement de chaine de bash, motif entre guillemets, est lui
+# purement litteral.
 do_cleanup_logs() {
     [[ -f $LOGFILE ]] || return 0
-    [[ -n $DB_PASS ]] && sed -i "s|$DB_PASS|***MASQUE***|g" "$LOGFILE" 2>/dev/null
-    [[ -n $ROOT_PASS ]] && sed -i "s|$ROOT_PASS|***MASQUE***|g" "$LOGFILE" 2>/dev/null
-    rm -f /tmp/.glpi-db.sql /tmp/.glpi-sec.sql "$MYSQL_TRY_CRED"
+    local tmp="$LOGFILE.masking" line n=0
+    if ( umask 077; : >"$tmp" ) 2>/dev/null; then
+        while IFS= read -r line || [[ -n $line ]]; do
+            if [[ -n $DB_PASS && $line == *"$DB_PASS"* ]]; then
+                line=${line//"$DB_PASS"/***MASQUE***}; n=$(( n + 1 ))
+            fi
+            if [[ -n $ROOT_PASS && $line == *"$ROOT_PASS"* ]]; then
+                line=${line//"$ROOT_PASS"/***MASQUE***}; n=$(( n + 1 ))
+            fi
+            printf '%s\n' "$line"
+        done <"$LOGFILE" >"$tmp"
+        if mv -f "$tmp" "$LOGFILE"; then
+            chmod 600 "$LOGFILE" 2>/dev/null
+        else
+            rm -f "$tmp"
+        fi
+    fi
+    printf 'Journal nettoye (%s occurrence(s) masquee(s)).\n' "$n"
+    rm -f /tmp/.glpi-db.sql /tmp/.glpi-sec.sql /tmp/.glpi-tz.sql \
+          /tmp/.glpi-ssl.cnf "$MYSQL_TRY_CRED"
     return 0
 }
 
@@ -5023,7 +5743,10 @@ run_install() {
     #---------------------------------------------------------- phase 1 : DL
     anim_begin download
 
-    step_run "$L_S_APT_UPDATE" 0 10 probe_apt_update \
+    APT_LOCK_T0=$SECONDS
+    step_run "$L_S_APT_LOCK" 0 3 probe_apt_lock do_wait_apt_lock
+
+    step_run "$L_S_APT_UPDATE" 3 10 probe_apt_update \
         do_apt_update \
         || fatal "$L_E_APT_UPDATE"
 
@@ -5121,6 +5844,8 @@ run_install() {
         step_run "$L_S_FIREWALL" 84 90 - \
             do_firewall \
             || fatal "$L_E_FIREWALL"
+        FW_PORTS=$(cat "$FW_PORTS_FILE" 2>/dev/null)
+        log_line "Ports ouverts par l'installation : ${FW_PORTS:-aucun}"
     else
         PCT=90; STEP_LABEL="$L_S_FIREWALL_SKIP"; anim_tick
     fi
@@ -5276,7 +6001,9 @@ check_internet() {
 
 cleanup() {
     tui_stop
-    rm -f "$STEP_LOG" "$APT_STATUS" /tmp/glpi-url.txt /tmp/.glpi-db.sql /tmp/.glpi-sec.sql /tmp/.glpi-tz.sql "$MYSQL_TRY_CRED" 2>/dev/null
+    rm -f "$STEP_LOG" "$APT_STATUS" /tmp/glpi-url.txt /tmp/.glpi-db.sql \
+          /tmp/.glpi-sec.sql /tmp/.glpi-tz.sql /tmp/.glpi-ssl.cnf \
+          "$FW_PORTS_FILE" "$MYSQL_TRY_CRED" 2>/dev/null
 }
 
 main_loop() {
