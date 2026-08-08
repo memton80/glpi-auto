@@ -44,12 +44,16 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically a
 - Installation automatique de GLPI (dernière version stable depuis GitHub)
 - Détection et téléchargement automatique de la dernière version
 - Barre de progression réelle, alimentée par apt et wget
+- En cas d'échec (coupure réseau, paquet manquant...), Tux s'effondre à l'écran
+  et la fenêtre d'erreur indique l'étape fautive et les dernières lignes du log
 
 **Main features:**
 - Custom console interface, no `whiptail` or `dialog` dependency
 - Automatic installation of GLPI (latest stable version from GitHub)
 - Automatic detection and download of the latest version
 - Real progress bars, driven by actual apt and wget output
+- On failure (network drop, missing package...), Tux collapses on screen and the
+  error window reports the failing step and the last lines of the log
 
 ### Stack technique / Technical Stack
 
@@ -533,7 +537,7 @@ glpi-auto/
 | **Firewall (optional)** | UFW with strict rules (22, 80, 443 only) |
 | **SSL/TLS** | Self-signed certificate with configurable validity |
 | **Secure logging** | Passwords masked in logs |
-| **Session security** | HTTP-only and secure cookies enabled |
+| **Session security** | HTTP-only cookies, SameSite=Lax, and `session.cookie_secure` enabled when the site is served over HTTPS |
 
 ---
 

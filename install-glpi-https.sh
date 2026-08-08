@@ -406,6 +406,7 @@ load_strings() {
         L_ANIM_INST_TITLE="INSTALLATION"
         L_ANIM_DL_PHASE="DOWNLOAD IN PROGRESS"
         L_ANIM_INST_PHASE="INSTALLATION IN PROGRESS"
+        L_ANIM_FAIL_PHASE="INSTALLATION INTERRUPTED"
         L_ANIM_LOG="Full log: %s"
         L_DL_RECEIVED="%s received"
 
@@ -635,6 +636,7 @@ load_strings() {
         L_ANIM_INST_TITLE="INSTALLATION"
         L_ANIM_DL_PHASE="TELECHARGEMENT EN COURS"
         L_ANIM_INST_PHASE="INSTALLATION EN COURS"
+        L_ANIM_FAIL_PHASE="INSTALLATION INTERROMPUE"
         L_ANIM_LOG="Journal complet : %s"
         L_DL_RECEIVED="%s recus"
 
@@ -787,12 +789,13 @@ draw_bar() {
 }
 
 #==============================================================================
-#  4. TUX (ASCII, 4 images d'animation)
+#  4. TUX (ASCII, 4 images d'animation + 4 images d'agonie)
 #==============================================================================
 
 TUX_H=7
 TUX_W=12
 declare -a TUX_0 TUX_1 TUX_2 TUX_3
+declare -a TUX_D0 TUX_D1 TUX_D2 TUX_D3
 
 load_tux() {
     local l
@@ -832,6 +835,46 @@ ART2
 /'\_   _/`\
 (___)=(___)
 ART3
+
+    # Agonie, jouee quand une etape echoue : Tux encaisse le coup (yeux
+    # ecarquilles, ailes en l'air), reste sonne (yeux en croix), s'affaisse
+    # d'une ligne, puis finit la tete au sol et les pattes en l'air.
+    while IFS= read -r l; do TUX_D0+=("$l"); done <<'DEAD0'
+    .--.
+   |O_O |
+   |:_/ |
+  \\   / /
+ (|     | )
+/'\_   _/`\
+(___)=(___)
+DEAD0
+    while IFS= read -r l; do TUX_D1+=("$l"); done <<'DEAD1'
+    .--.
+   |x_x |
+   |:_/ |
+  \\   / /
+ (|    | )
+ /'\_ _/`\
+ \__)=(__/
+DEAD1
+    while IFS= read -r l; do TUX_D2+=("$l"); done <<'DEAD2'
+
+    .--.
+   |x_x |
+   |:_/ |
+  (|    |)
+ /'\_  _/`\
+ \___)=(__/
+DEAD2
+    while IFS= read -r l; do TUX_D3+=("$l"); done <<'DEAD3'
+ /___)=(___\
+ \'/     \'/
+  (|     |)
+   \\   //
+    |:_/|
+    |x_x|
+     '--'
+DEAD3
 }
 
 # tux_line <image 0-3> <ligne 0-6> -> TUXL
@@ -841,6 +884,16 @@ tux_line() {
         1) TUXL=${TUX_1[$2]} ;;
         2) TUXL=${TUX_2[$2]} ;;
         *) TUXL=${TUX_3[$2]} ;;
+    esac
+}
+
+# tux_death_line <image 0-3> <ligne 0-6> -> TUXL
+tux_death_line() {
+    case $1 in
+        0) TUXL=${TUX_D0[$2]} ;;
+        1) TUXL=${TUX_D1[$2]} ;;
+        2) TUXL=${TUX_D2[$2]} ;;
+        *) TUXL=${TUX_D3[$2]} ;;
     esac
 }
 
@@ -1851,6 +1904,67 @@ anim_tick() {
     printf '%s' "$BUF"
 }
 
+# Jouee par fatal() : Tux encaisse l'erreur et s'effondre, la barre de
+# progression se fige en rouge a l'endroit exact ou l'etape a lache. Le dernier
+# dessin reste a l'ecran, la fenetre d'erreur s'ouvre par dessus.
+anim_death() {
+    # l'ecran d'installation n'a jamais ete affiche : rien a animer
+    (( ANIM_W > 2 )) || return 0
+
+    local inner=$(( ANIM_W - 4 ))
+    local ix=$(( ANIM_X + 2 ))
+    local f i x before pre art
+
+    # Tux meurt la ou il se trouvait, pas ailleurs
+    if [[ $ANIM_MODE == download ]]; then
+        local run=$(( inner - TUX_W - 2 ))
+        (( run < 0 )) && run=0
+        x=$(( ix + run * PCT / 100 ))
+    else
+        x=$(( ix + (inner - TUX_W) / 2 ))
+    fi
+    (( x < ix )) && x=$ix
+    before=$(( x - ix ))
+
+    # barre figee en rouge sur le pourcentage atteint
+    local bar_save=$C_BAR
+    C_BAR=$C_ERR
+
+    local ptitle="$L_ANIM_FAIL_PHASE"
+    local px=$(( ix + (inner - ${#ptitle}) / 2 ))
+    (( px < ix )) && px=$ix
+
+    for (( f = 0; f < 4; f++ )); do
+        BUF=""
+        for (( i = 0; i < TUX_H; i++ )); do
+            tux_death_line "$f" "$i"
+            art=$TUXL
+            printf -v PAD '%*s' "$before" ''
+            pre=$PAD
+            pad_str "$art" $(( inner - before ))
+            put $(( TUX_Y + i )) "$ix" "${pre}${C_ERR}${PAD}${C_RESET}"
+        done
+
+        printf -v PAD '%*s' "$inner" ''
+        put "$TITLE_Y" "$ix" "$PAD"
+        put "$TITLE_Y" "$px" "${C_BOLD}${C_ERR}${ptitle}${C_RESET}"
+
+        pad_str "$STEP_LABEL" "$inner"
+        put "$LABEL_Y" "$ix" "${C_ERR}${PAD}${C_RESET}"
+
+        draw_bar "$BAR_Y" "$ix" "$inner" "$PCT"
+
+        pad_str "" "$inner"
+        put "$INFO_Y" "$ix" "$PAD"
+
+        printf '%s' "$BUF"
+        sleep 0.28
+    done
+
+    C_BAR=$bar_save
+    sleep 0.5
+}
+
 #==============================================================================
 #  12. SONDES DE PROGRESSION
 #==============================================================================
@@ -1947,6 +2061,8 @@ fatal() {
     local msg=$1
     local tail_log
     tail_log=$(tail -n 6 "$STEP_LOG" 2>/dev/null | cut -c1-70)
+    log_line "ECHEC : $msg (etape : ${STEP_LABEL:-?}, progression : ${PCT:-0}%)"
+    anim_death
     compute_layout
     modal_message "$L_FATAL_T" \
 "$msg
@@ -2248,12 +2364,20 @@ CONF
 
 do_php_config() {
     local ini
+    # session.cookie_secure interdit au navigateur d'emettre le cookie de
+    # session ailleurs qu'en HTTPS. Force a On sans certificat, il rendrait la
+    # connexion a GLPI impossible : on ne l'active donc que si le site est
+    # effectivement servi en HTTPS.
+    local secure="Off"
+    [[ $SSL_ON == oui ]] && secure="On"
+    printf 'session.cookie_secure = %s (HTTPS : %s)\n' "$secure" "$SSL_ON"
+
     for ini in /etc/php/*/apache2/php.ini; do
         [[ -f $ini ]] || continue
         # copie d'origine : le script de desinstallation la remet en place
         [[ -f $ini.glpi-backup ]] || cp -p "$ini" "$ini.glpi-backup"
         sed -i "s/^;*[[:space:]]*session.cookie_httponly[[:space:]]*=.*/session.cookie_httponly = On/" "$ini"
-        sed -i "s/^;*[[:space:]]*session.cookie_secure[[:space:]]*=.*/session.cookie_secure = On/" "$ini"
+        sed -i "s/^;*[[:space:]]*session.cookie_secure[[:space:]]*=.*/session.cookie_secure = $secure/" "$ini"
         sed -i "s/^;*[[:space:]]*intl.default_locale[[:space:]]*=.*/intl.default_locale = $PHP_LOCALE/" "$ini"
         sed -i "s/^;*[[:space:]]*upload_max_filesize[[:space:]]*=.*/upload_max_filesize = 32M/" "$ini"
         sed -i "s/^;*[[:space:]]*post_max_size[[:space:]]*=.*/post_max_size = 32M/" "$ini"
