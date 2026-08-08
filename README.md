@@ -6,13 +6,13 @@
   <img src="https://img.shields.io/badge/Built%20with-Bash-1f425f?style=for-the-badge">
   <img src="https://img.shields.io/badge/License-GPL 3.0-green?style=for-the-badge">
   <img src="https://img.shields.io/badge/GLPI-11.0.0+-blue?style=for-the-badge">
-  <img src="https://img.shields.io/badge/OS-Debian%2012-yellow?style=for-the-badge">
+  <img src="https://img.shields.io/badge/OS-Debian%2012%20%7C%2013-yellow?style=for-the-badge">
   <img src="https://img.shields.io/badge/Security-Hardened-red?style=for-the-badge">
 </p>
 
-> Guide complet pour l'installation automatisée et sécurisée de GLPI sur Debian 12
+> Guide complet pour l'installation automatisée et sécurisée de GLPI sur Debian 12 et Debian 13
 
-> Complete guide for automated and secure GLPI installation on Debian 12
+> Complete guide for automated and secure GLPI installation on Debian 12 and Debian 13
 
 ---
 
@@ -35,9 +35,9 @@
 
 ### Installation automatisée / Automated Installation
 
-Ce projet contient un script Bash (`install-glpi-https.sh`) permettant d'installer **GLPI** sur un serveur **Debian 12** de manière automatisée et **sécurisée**, avec **Apache**, **MariaDB**, **PHP 8.2**, et un **certificat SSL auto-signé**.
+Ce projet contient un script Bash (`install-glpi-https.sh`) permettant d'installer **GLPI** sur un serveur **Debian 12 ou Debian 13** de manière automatisée et **sécurisée**, avec **Apache**, **MariaDB**, **PHP**, et un **certificat SSL auto-signé**. Le script détecte la version de la distribution et adapte la liste des paquets qu'il demande à `apt`.
 
-This project contains a Bash script (`install-glpi-https.sh`) to automatically and **securely** install **GLPI** on a Debian 12 server, including **Apache**, **MariaDB**, **PHP 8.2**, and a **self-signed SSL certificate**.
+This project contains a Bash script (`install-glpi-https.sh`) to automatically and **securely** install **GLPI** on a Debian 12 or Debian 13 server, including **Apache**, **MariaDB**, **PHP**, and a **self-signed SSL certificate**. The script detects the distribution release and adapts the package list it requests from `apt`.
 
 **Caractéristiques principales / Main features:**
 - Interface console dédiée, sans dépendance à `whiptail` ou `dialog`
@@ -57,9 +57,19 @@ This project contains a Bash script (`install-glpi-https.sh`) to automatically a
 
 **MariaDB** sécurisé / hardened
 
-**PHP 8.2** avec toutes les extensions requises / with all required extensions:
-- mysql, xml, mbstring, curl, gd, intl, ldap, imap
-- zip, bz2, cli, apcu, bcmath, opcache, exif
+**PHP** (8.2 sur Debian 12, 8.4 sur Debian 13) avec toutes les extensions
+requises / (8.2 on Debian 12, 8.4 on Debian 13) with all required extensions:
+- mysql, xml, mbstring, curl, gd, intl, zip, bz2, cli, bcmath, opcache
+- optionnelles, posées si la distribution les fournit / optional, installed when
+  the distribution provides them: ldap, apcu, exif, sodium, imap
+
+> `php-imap` n'existe plus sur Debian 13 : PHP 8.4 ne fournit plus l'extension
+> IMAP et Debian a retiré le paquet. GLPI 11 ne l'utilise plus, le script la
+> saute donc automatiquement sur cette version.
+>
+> `php-imap` no longer exists on Debian 13: PHP 8.4 dropped the IMAP extension
+> and Debian removed the package. GLPI 11 no longer uses it, so the script skips
+> it automatically on that release.
 
 Configuration optimisée pour la production / Production-optimized configuration
 
@@ -159,7 +169,8 @@ The interface is written entirely in Bash (no `whiptail`, no `dialog`).
 > Before running the script, ensure you have the following:
 
 **Système / System:**
-- Un système **Debian 12** (Bookworm) / A **Debian 12** (Bookworm) system
+- Un système **Debian 12** (Bookworm) ou **Debian 13** (Trixie) /
+  A **Debian 12** (Bookworm) or **Debian 13** (Trixie) system
 - Accès **root** ou via `sudo` / **root** access or `sudo` privileges
 - Connexion Internet active / Active internet connection
 
@@ -410,12 +421,19 @@ The full log is written to `/var/log/glpi-uninstall.log`.
 
 ## Dépannage / Troubleshooting
 
-### Erreur "Unable to locate package php8.2-xxx"
+### Erreur "Unable to locate package php-xxx"
+
+Le script n'ajoute à la commande `apt` que les extensions optionnelles connues
+de la distribution, et bascule sur une pose paquet par paquet si le lot groupé
+échoue. Si l'erreur persiste, les listes de paquets sont probablement obsolètes:
 
 ```bash
 apt update
 apt install software-properties-common -y
 ```
+
+Pour savoir ce qui a été retenu, la liste exacte est journalisée au début de
+l'étape PHP dans `/var/log/glpi-install.log`.
 
 ### Le site n'est pas accessible via HTTPS
 

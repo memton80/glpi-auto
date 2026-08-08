@@ -1,6 +1,6 @@
 #!/bin/bash
 #==============================================================================
-#  GLPI AUTO - Installation automatisee de GLPI sur Debian 12
+#  GLPI AUTO - Installation automatisee de GLPI sur Debian 12 et Debian 13
 #
 #  Interface console maison (aucune dependance a whiptail / dialog) :
 #    - panneau "Machine" en haut a droite (IP, nom, pare-feu, ports 80/443)
@@ -14,7 +14,7 @@
 set -o pipefail
 
 #------------------------------------------------------------------ constantes
-SCRIPT_VERSION="2.2"
+SCRIPT_VERSION="2.3"
 LOGFILE="/var/log/glpi-install.log"
 STEP_LOG="/tmp/glpi-step.log"
 APT_STATUS="/tmp/glpi-apt-status.log"
@@ -30,6 +30,36 @@ GLPI_FALLBACK_URL="https://github.com/glpi-project/glpi/releases/download/11.0.0
 
 export PATH="$PATH:/usr/sbin:/sbin:/usr/local/sbin"
 export DEBIAN_FRONTEND=noninteractive
+
+#------------------------------------------------------- distribution detectee
+# OS_ID       : "debian", "ubuntu"...
+# OS_VER      : numero de version majeur (12, 13...), 0 si illisible
+# OS_CODENAME : "bookworm", "trixie"...
+# OS_LABEL    : libelle court affiche dans l'interface ("DEBIAN 13")
+#
+# Debian 12 livre PHP 8.2 et Debian 13 livre PHP 8.4 : les deux n'exposent pas
+# le meme jeu d'extensions. Ces valeurs servent a adapter la liste de paquets
+# demandee a apt plutot que de la figer sur une seule version de Debian.
+OS_ID="debian"
+OS_VER=0
+OS_CODENAME=""
+OS_LABEL="DEBIAN"
+
+detect_os_release() {
+    local id="" ver="" code=""
+    if [[ -r /etc/os-release ]]; then
+        id=$(. /etc/os-release 2>/dev/null && printf '%s' "${ID:-}")
+        ver=$(. /etc/os-release 2>/dev/null && printf '%s' "${VERSION_ID:-}")
+        code=$(. /etc/os-release 2>/dev/null && printf '%s' "${VERSION_CODENAME:-}")
+    fi
+    [[ -n $id ]] && OS_ID=$id
+    OS_CODENAME=$code
+    ver=${ver%%.*}
+    if [[ $ver =~ ^[0-9]+$ ]]; then OS_VER=$ver; else OS_VER=0; fi
+
+    OS_LABEL=${OS_ID^^}
+    (( OS_VER > 0 )) && OS_LABEL="$OS_LABEL $OS_VER"
+}
 
 #==============================================================================
 #  1. TERMINAL : locale, couleurs, caracteres de cadre
@@ -231,7 +261,7 @@ declare -a L_KEYS
 load_strings() {
     if [[ $UILANG == en ]]; then
         # ---------------------------------------------------------- ENGLISH
-        L_APP_TITLE="GLPI AUTO - DEBIAN 12 INSTALLER"
+        L_APP_TITLE="GLPI AUTO - $OS_LABEL INSTALLER"
         L_PANEL_CONFIG="Configuration"
         L_PANEL_MACHINE="Machine"
         L_PANEL_KEYS="Shortcuts"
@@ -460,7 +490,7 @@ load_strings() {
         L_UN_WRITTEN="Uninstall script written: %s"
     else
         # --------------------------------------------------------- FRANCAIS
-        L_APP_TITLE="GLPI AUTO - INSTALLATEUR DEBIAN 12"
+        L_APP_TITLE="GLPI AUTO - INSTALLATEUR $OS_LABEL"
         L_PANEL_CONFIG="Configuration"
         L_PANEL_MACHINE="Machine"
         L_PANEL_KEYS="Raccourcis"
@@ -1645,15 +1675,15 @@ validate_form() {
 # Sur une machine qui a deja recu une installation, le compte root MariaDB est
 # protege : autant s'en apercevoir avant de telecharger quoi que ce soit.
 check_mysql_root() {
-    command -v mysql >/dev/null 2>&1 || return 0
+    find_mysql_bin || return 0
     systemctl is-active --quiet mariadb 2>/dev/null || \
         systemctl is-active --quiet mysql 2>/dev/null || return 0
-    mysql -e 'SELECT 1' >/dev/null 2>&1 && return 0
-    [[ -r $MYSQL_CRED ]] && mysql --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1 && return 0
+    "$MYSQL_BIN" -e 'SELECT 1' >/dev/null 2>&1 && return 0
+    [[ -r $MYSQL_CRED ]] && "$MYSQL_BIN" --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1 && return 0
     local pw=${VAL[root_pass]} rc=1
     if [[ -n $pw ]]; then
         ( umask 077; printf '[client]\nuser=root\npassword=%s\n' "$pw" >"$MYSQL_TRY_CRED" )
-        mysql --defaults-file="$MYSQL_TRY_CRED" -e 'SELECT 1' >/dev/null 2>&1 && rc=0
+        "$MYSQL_BIN" --defaults-file="$MYSQL_TRY_CRED" -e 'SELECT 1' >/dev/null 2>&1 && rc=0
         rm -f "$MYSQL_TRY_CRED"
     fi
     return $rc
@@ -1945,6 +1975,62 @@ do_apt_install() {
     LC_ALL=C apt-get install -y -o APT::Status-Fd=3 "$@" 3>"$APT_STATUS"
 }
 
+# Vrai si apt connait ce nom de paquet. apt-cache show sort en 0 des que le nom
+# existe, y compris pour un paquet purement virtuel comme php-exif ou
+# php-opcache (fournis par php8.x-common et php8.x-opcache), et en 100 pour un
+# nom inconnu du depot.
+pkg_known() {
+    LC_ALL=C apt-cache show -- "$1" >/dev/null 2>&1
+}
+
+#-------------------------------------------------------- paquets PHP a poser
+# Socle commun a Debian 12 (PHP 8.2) et Debian 13 (PHP 8.4) : ces paquets sont
+# obligatoires, GLPI ne demarre pas sans eux.
+PHP_BASE=(php php-mysql php-xml php-mbstring php-curl php-gd php-intl
+          php-zip php-bz2 php-cli php-bcmath php-opcache libapache2-mod-php)
+
+# Extensions optionnelles, ajoutees seulement si la distribution les fournit.
+#   php-imap   : present sur Debian 12, retire de Debian 13 (PHP 8.4 ne livre
+#                plus l'extension IMAP et libc-client-dev a quitte l'archive).
+#                GLPI 11 ne la reclame plus, son collecteur de courriel passe
+#                par une implementation PHP pure.
+#   php-sodium : absent de certaines versions, recommande par GLPI pour le
+#                chiffrement des donnees sensibles en base.
+PHP_OPT_WANTED=(php-ldap php-apcu php-exif php-sodium php-imap)
+PHP_OPT=()
+
+php_build_pkgs() {
+    local p
+    PHP_OPT=()
+    for p in "${PHP_OPT_WANTED[@]}"; do
+        if pkg_known "$p"; then
+            PHP_OPT+=("$p")
+        else
+            printf 'Extension absente de %s, ignoree : %s\n' "$OS_LABEL" "$p"
+        fi
+    done
+}
+
+do_apt_install_php() {
+    printf 'Distribution : %s (%s %s %s)\n' "$OS_LABEL" "$OS_ID" "$OS_VER" "$OS_CODENAME"
+    php_build_pkgs
+    printf 'Socle       : %s\n' "${PHP_BASE[*]}"
+    printf 'Optionnels  : %s\n' "${PHP_OPT[*]:-aucun}"
+
+    do_apt_install "${PHP_BASE[@]}" "${PHP_OPT[@]}" && return 0
+
+    # Une extension optionnelle peut rester ininstallable meme si apt la
+    # connait (dependance cassee, depot partiel) : apt-get abandonne alors tout
+    # le lot. On repose donc le socle seul, puis chaque option separement.
+    printf 'Installation groupee en echec, reprise paquet par paquet.\n'
+    do_apt_install "${PHP_BASE[@]}" || return 1
+    local p
+    for p in "${PHP_OPT[@]}"; do
+        do_apt_install "$p" || printf 'Extension optionnelle ignoree : %s\n' "$p"
+    done
+    return 0
+}
+
 do_fetch_glpi_url() {
     local url=""
     if command -v wget >/dev/null 2>&1; then
@@ -1985,6 +2071,21 @@ do_move_glpi() {
     [[ -d $GLPI_DIR ]]
 }
 
+# Client en ligne de commande de MariaDB. Debian 12 installe "mysql" et
+# "mariadb", Debian 13 (MariaDB 11.8) considere "mariadb" comme le nom officiel
+# et ne garde "mysql" que par compatibilite, dans un paquet separe appele a
+# disparaitre. On prend donc "mariadb" quand il existe et "mysql" sinon.
+MYSQL_BIN=""
+
+find_mysql_bin() {
+    local b
+    for b in mariadb mysql; do
+        if command -v "$b" >/dev/null 2>&1; then MYSQL_BIN=$b; return 0; fi
+    done
+    MYSQL_BIN=""
+    return 1
+}
+
 # Une installation precedente a pu laisser un mot de passe root : la connexion
 # par socket ne suffit alors plus. On essaie dans l'ordre le socket root, le
 # fichier de credentials laisse par cette installation, puis le mot de passe
@@ -1993,15 +2094,15 @@ declare -a MYSQL_ADMIN=()
 
 find_mysql_admin() {
     MYSQL_ADMIN=()
-    command -v mysql >/dev/null 2>&1 || return 1
-    mysql -e 'SELECT 1' >/dev/null 2>&1 && return 0
-    if [[ -r $MYSQL_CRED ]] && mysql --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
+    find_mysql_bin || return 1
+    "$MYSQL_BIN" -e 'SELECT 1' >/dev/null 2>&1 && return 0
+    if [[ -r $MYSQL_CRED ]] && "$MYSQL_BIN" --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
         MYSQL_ADMIN=(--defaults-file="$MYSQL_CRED")
         return 0
     fi
     if [[ -n $ROOT_PASS ]]; then
         ( umask 077; printf '[client]\nuser=root\npassword=%s\n' "$ROOT_PASS" >"$MYSQL_TRY_CRED" )
-        if mysql --defaults-file="$MYSQL_TRY_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
+        if "$MYSQL_BIN" --defaults-file="$MYSQL_TRY_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
             MYSQL_ADMIN=(--defaults-file="$MYSQL_TRY_CRED")
             return 0
         fi
@@ -2012,7 +2113,7 @@ find_mysql_admin() {
     return 1
 }
 
-mysql_admin() { mysql "${MYSQL_ADMIN[@]}" "$@"; }
+mysql_admin() { "$MYSQL_BIN" "${MYSQL_ADMIN[@]}" "$@"; }
 
 do_create_db() {
     local sql="/tmp/.glpi-db.sql" rc
@@ -2056,8 +2157,8 @@ CRED
     )
     chmod 600 "$MYSQL_CRED"
     # les tables de test sont parfois referencees dans mysql.db
-    mysql --defaults-file="$MYSQL_CRED" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';" 2>/dev/null
-    mysql --defaults-file="$MYSQL_CRED" -e "FLUSH PRIVILEGES;" 2>/dev/null
+    "$MYSQL_BIN" --defaults-file="$MYSQL_CRED" -e "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';" 2>/dev/null
+    "$MYSQL_BIN" --defaults-file="$MYSQL_CRED" -e "FLUSH PRIVILEGES;" 2>/dev/null
     return 0
 }
 
@@ -3033,19 +3134,31 @@ svc_installed() {
     systemctl list-unit-files "$1.service" 2>/dev/null | grep -q "^$1.service"
 }
 
+# Client MariaDB : "mariadb" sur Debian 13, "mysql" sur Debian 12.
+MYSQL_BIN=""
+
+find_mysql_bin() {
+    local b
+    for b in mariadb mysql; do
+        if command -v "$b" >/dev/null 2>&1; then MYSQL_BIN=$b; return 0; fi
+    done
+    MYSQL_BIN=""
+    return 1
+}
+
 # Cherche un acces a MariaDB : fichier de credentials, socket root, puis
 # mot de passe saisi par l'utilisateur (db_try_password).
 db_probe() {
     DB_READY=0
     DB_ARGS=()
-    command -v mysql >/dev/null 2>&1 || return 1
-    if [[ -r $MYSQL_CRED ]] && mysql --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
+    find_mysql_bin || return 1
+    if [[ -r $MYSQL_CRED ]] && "$MYSQL_BIN" --defaults-file="$MYSQL_CRED" -e 'SELECT 1' >/dev/null 2>&1; then
         DB_ARGS=(--defaults-file="$MYSQL_CRED"); DB_READY=1; return 0
     fi
-    if [[ -r $UN_CRED_TMP ]] && mysql --defaults-file="$UN_CRED_TMP" -e 'SELECT 1' >/dev/null 2>&1; then
+    if [[ -r $UN_CRED_TMP ]] && "$MYSQL_BIN" --defaults-file="$UN_CRED_TMP" -e 'SELECT 1' >/dev/null 2>&1; then
         DB_ARGS=(--defaults-file="$UN_CRED_TMP"); DB_READY=1; return 0
     fi
-    if mysql -e 'SELECT 1' >/dev/null 2>&1; then
+    if "$MYSQL_BIN" -e 'SELECT 1' >/dev/null 2>&1; then
         DB_READY=1; return 0
     fi
     return 1
@@ -3053,8 +3166,9 @@ db_probe() {
 
 db_try_password() {
     local pw=$1
+    [[ -n $MYSQL_BIN ]] || find_mysql_bin || return 1
     ( umask 077; printf '[client]\nuser=root\npassword=%s\n' "$pw" >"$UN_CRED_TMP" )
-    if mysql --defaults-file="$UN_CRED_TMP" -e 'SELECT 1' >/dev/null 2>&1; then
+    if "$MYSQL_BIN" --defaults-file="$UN_CRED_TMP" -e 'SELECT 1' >/dev/null 2>&1; then
         DB_ARGS=(--defaults-file="$UN_CRED_TMP"); DB_READY=1; return 0
     fi
     rm -f "$UN_CRED_TMP"
@@ -3062,18 +3176,20 @@ db_try_password() {
 }
 
 db_query() {
+    [[ -n $MYSQL_BIN ]] || find_mysql_bin || return 1
     if (( ${#DB_ARGS[@]} )); then
-        mysql "${DB_ARGS[@]}" -N -B -e "$1" 2>/dev/null
+        "$MYSQL_BIN" "${DB_ARGS[@]}" -N -B -e "$1" 2>/dev/null
     else
-        mysql -N -B -e "$1" 2>/dev/null
+        "$MYSQL_BIN" -N -B -e "$1" 2>/dev/null
     fi
 }
 
 db_exec() {
+    [[ -n $MYSQL_BIN ]] || find_mysql_bin || return 1
     if (( ${#DB_ARGS[@]} )); then
-        mysql "${DB_ARGS[@]}" -e "$1"
+        "$MYSQL_BIN" "${DB_ARGS[@]}" -e "$1"
     else
-        mysql -e "$1"
+        "$MYSQL_BIN" -e "$1"
     fi
 }
 
@@ -4660,6 +4776,7 @@ run_install() {
     : >"$LOGFILE"
     chmod 600 "$LOGFILE" 2>/dev/null
     log_line "Installation GLPI demarree le $(date '+%F %T')"
+    log_line "Script: v$SCRIPT_VERSION  Systeme: $OS_ID $OS_VER ($OS_CODENAME)"
     log_line "Hote: $MI_HOST  IP: $MI_IP  Domaine: $DOMAIN"
 
     #---------------------------------------------------------- phase 1 : DL
@@ -4674,9 +4791,7 @@ run_install() {
         || fatal "$L_E_APT_WEB"
 
     step_run "$L_S_APT_PHP" 40 70 probe_apt \
-        do_apt_install php php-mysql php-xml php-mbstring php-curl php-gd php-intl \
-                       php-ldap php-imap php-zip php-bz2 php-cli php-apcu php-bcmath \
-                       php-opcache php-exif libapache2-mod-php \
+        do_apt_install_php \
         || fatal "$L_E_APT_PHP"
 
     step_run "$L_S_APT_TOOLS" 70 78 probe_apt \
@@ -4868,8 +4983,8 @@ precheck() {
         exit 1
     fi
     if ! command -v apt-get >/dev/null 2>&1; then
-        printf '%s\n' "Systeme non supporte : apt-get est introuvable (Debian 12 attendu)." >&2
-        printf '%s\n' "Unsupported system: apt-get not found (Debian 12 expected)." >&2
+        printf '%s\n' "Systeme non supporte : apt-get est introuvable (Debian 12 ou 13 attendu)." >&2
+        printf '%s\n' "Unsupported system: apt-get not found (Debian 12 or 13 expected)." >&2
         exit 1
     fi
     touch "$LOGFILE" 2>/dev/null || LOGFILE="/tmp/glpi-install.log"
@@ -5002,6 +5117,7 @@ $L_CONFIRM_ASK"; then
 }
 
 main() {
+    detect_os_release
     setup_locale
     setup_charset
     setup_colors
