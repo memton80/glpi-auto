@@ -99,8 +99,11 @@ Configuration optimisée pour la production / Production-optimized configuration
 - Regex strict (alphanumériques et underscores uniquement)
 
 **Pare-feu UFW optionnel / Optional UFW firewall:**
-- Configuration automatique (ports 22, 80, 443)
-- Politique par défaut : deny incoming
+- Ouverture du port d'écoute réel de `sshd` (relevé par `sshd -T`, et non le
+  port 22 supposé), du port 80 et du port 443 si HTTPS est activé
+- Politique par défaut `deny incoming` **uniquement si UFW était inactif** :
+  un pare-feu déjà en service n'est jamais réinitialisé, ses règles existantes
+  sont conservées
 
 **Logs sécurisés / Secure logs:**
 - Mots de passe masqués dans `/var/log/glpi-install.log`
@@ -204,7 +207,7 @@ GLPI user. It also sets `date.timezone` in `php.ini` from the system time zone.
 - **Libère les ports 80 et 443** pour qu'une réinstallation reparte sur une
   machine propre
 - Récapitulatif final vérifié : ce qui a réellement disparu, ce qui reste
-- Mode texte pour les scripts : `-y`, `--all`, `--keep-packages`
+- Mode texte pour les scripts : `-y`, `--all`, `--keep-packages`, `--firewall`
 
 - Auto-generated `uninstall-glpi.sh` with **its own console interface** (same
   panels, same Tux, same progress bar as the installer)
@@ -212,7 +215,7 @@ GLPI user. It also sets `date.timezone` in `php.ini` from the system time zone.
   Apache / PHP / MariaDB packages, UFW rules
 - **Frees ports 80 and 443** so a reinstall starts from a clean machine
 - Verified final report: what is really gone, what is left
-- Text mode for scripting: `-y`, `--all`, `--keep-packages`
+- Text mode for scripting: `-y`, `--all`, `--keep-packages`, `--firewall`
 
 ---
 
@@ -430,7 +433,7 @@ sudo ./uninstall-glpi.sh
 | Tâches planifiées | `/etc/cron.d/glpi*` et les entrées GLPI des crontabs `root` et `www-data` |
 | Paquets | Apache, PHP et ses extensions, MariaDB, puis `apt-get autoremove --purge` |
 | Configuration système | Restauration des `php.ini` et de `50-server.cnf` sauvegardés avant l'installation |
-| Pare-feu | Retrait des règles UFW 80 et 443 (le port 22 reste autorisé) |
+| Pare-feu | Menu dédié : la liste des règles UFW en place est affichée et l'utilisateur coche celles à retirer. Rien n'est coché d'office en dehors des ports ouverts par l'installation, et les règles SSH sont signalées et jamais présélectionnées |
 | Traces | `/root/.mysql_credentials`, `/var/log/glpi-install.log` |
 
 > [!IMPORTANT]
@@ -458,6 +461,19 @@ sudo ./uninstall-glpi.sh -y --all           # tout, paquets compris
 sudo ./uninstall-glpi.sh -y --keep-packages # garde Apache, PHP et MariaDB
 sudo ./uninstall-glpi.sh --help
 ```
+
+Les règles UFW se choisissent avec `--firewall` :
+
+```bash
+sudo ./uninstall-glpi.sh -y --firewall=none          # ne touche à aucune règle
+sudo ./uninstall-glpi.sh -y --firewall=glpi          # ports ouverts à l'installation (défaut)
+sudo ./uninstall-glpi.sh -y --firewall=all           # toutes les règles sauf SSH
+sudo ./uninstall-glpi.sh -y --firewall=443/tcp,8080  # une liste explicite
+```
+
+`all` épargne toujours les règles qui portent sur un port d'écoute de `sshd` :
+pour en retirer une, il faut la nommer. Le plan affiché avant suppression
+énumère les règles concernées.
 
 Le journal complet est écrit dans `/var/log/glpi-uninstall.log`.
 
@@ -585,8 +601,8 @@ glpi-auto/
 | **File permissions** | 750 for GLPI, 770 for data dirs, 600 for credentials |
 | **Directory protection** | `/files`, `/config`, `/install` protected by .htaccess |
 | **Input validation** | Regex validation for DB names and users |
-| **Firewall (optional)** | UFW with strict rules (22, 80, 443 only) |
-| **SSL/TLS** | Self-signed certificate with configurable validity, plain HTTP redirected to HTTPS |
+| **Firewall (optional)** | UFW: opens the real `sshd` port, 80, and 443 (HTTPS only); existing rules are never reset |
+| **SSL/TLS** | Self-signed certificate with `subjectAltName` (required by current browsers), configurable validity, plain HTTP redirected to HTTPS |
 | **Secure logging** | Passwords masked in logs |
 | **Session security** | HTTP-only cookies, SameSite=Lax, and `session.cookie_secure` enabled when the site is served over HTTPS |
 
